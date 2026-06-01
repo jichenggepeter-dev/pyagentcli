@@ -8,6 +8,7 @@ from typing import Any
 
 
 MAX_MEMORY_CONTEXT_CHARS = 6000
+DEFAULT_STALE_DAYS = 30
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,61 @@ class ProjectMemory:
         with self.project_path.open("a", encoding="utf-8") as handle:
             handle.write(f"- {timestamp}: {cleaned}\n")
         return f"Remembered note in {self.project_path}"
+
+    def delete_project_memory_line(self, line_number: int) -> str:
+        if line_number < 1:
+            return "Line number must be >= 1."
+        if not self.project_path.exists():
+            return "Project memory is empty."
+
+        lines = self.project_path.read_text(encoding="utf-8").splitlines()
+        if line_number > len(lines):
+            return f"Line number out of range: {line_number}."
+        removed = lines.pop(line_number - 1)
+        self.project_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        return f"Deleted memory line {line_number}: {removed}"
+
+    def compress_sessions(self, *, limit: int = 10) -> str:
+        sessions = self.list_sessions(limit=limit)
+        if not sessions:
+            return "No sessions to compress."
+
+        tool_names = sorted({tool for session in sessions for tool in (session.tools or [])})
+        path_names = sorted({path for session in sessions for path in (session.paths or [])})
+        goals = [session.goal for session in sessions if session.goal]
+        summary_parts = [
+            f"Compressed {len(sessions)} recent sessions.",
+            f"Recent goals: {'; '.join(goals[:5]) or '<none>'}.",
+        ]
+        if tool_names:
+            summary_parts.append(f"Common tools: {', '.join(tool_names[:8])}.")
+        if path_names:
+            summary_parts.append(f"Observed paths: {', '.join(path_names[:8])}.")
+        note = " ".join(summary_parts)
+        self.remember(f"Session summary: {note}")
+        return f"Compressed sessions into project memory: {note}"
+
+    def stale_notes(self, *, older_than_days: int = DEFAULT_STALE_DAYS) -> list[tuple[int, str]]:
+        if not self.project_path.exists():
+            return []
+        now = datetime.now(UTC)
+        stale: list[tuple[int, str]] = []
+        for index, line in enumerate(self.project_path.read_text(encoding="utf-8").splitlines(), start=1):
+            timestamp = _timestamp_from_memory_line(line)
+            if timestamp is None:
+                continue
+            age_days = (now - timestamp).days
+            if age_days >= older_than_days:
+                stale.append((index, line))
+        return stale
+
+    def format_stale_notes(self, *, older_than_days: int = DEFAULT_STALE_DAYS) -> str:
+        stale = self.stale_notes(older_than_days=older_than_days)
+        if not stale:
+            return f"No project memory notes older than {older_than_days} days."
+        lines = [f"Project memory notes older than {older_than_days} days:"]
+        lines.extend(f"{line_number}: {line}" for line_number, line in stale)
+        return "\n".join(lines)
 
     def record_session(
         self,
@@ -159,3 +215,16 @@ def _summarize(value: str, *, max_chars: int = 600) -> str:
     if len(clean) <= max_chars:
         return clean
     return clean[: max_chars - 3] + "..."
+
+
+def _timestamp_from_memory_line(line: str) -> datetime | None:
+    if not line.startswith("- ") or ": " not in line:
+        return None
+    raw_timestamp = line[2:].split(": ", 1)[0]
+    try:
+        parsed = datetime.fromisoformat(raw_timestamp)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed

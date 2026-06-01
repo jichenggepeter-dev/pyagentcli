@@ -1,6 +1,6 @@
-# Memory v0.1
+# Memory v0.2
 
-Memory v0.1 gives PyAgentCLI a small local memory layer.
+Memory gives PyAgentCLI a small local memory layer.
 
 It is intentionally explicit and file-based:
 
@@ -23,6 +23,30 @@ Show project memory and recent sessions:
 PYTHONPATH=src python -m pyagentcli \
   --workspace examples/demo_workspace \
   --memory
+```
+
+Compress recent session summaries into project memory:
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  --compress-memory
+```
+
+Delete a project memory line:
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  --delete-memory-line 3
+```
+
+Show memory notes older than a threshold:
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  --stale-memory-days 30
 ```
 
 ## Injection
@@ -52,6 +76,6 @@ This version does not add user-level long-term memory. Project memory stays insi
 
 ## Next Steps
 
-1. Add a compressor that turns recent sessions into project-level durable notes.
-2. Add Reviewer Agent v0.1 after plan execution.
-3. Add Eval Harness v0.1 for repeatable task success measurement.
+1. Add model-assisted memory summarization as an optional enhancement.
+2. Add stale memory review prompts before injection.
+3. Add user-level memory outside the workspace.

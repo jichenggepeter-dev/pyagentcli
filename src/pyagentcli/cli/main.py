@@ -137,6 +137,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Append a note to project memory.",
     )
     parser.add_argument(
+        "--compress-memory",
+        action="store_true",
+        help="Compress recent session summaries into project memory.",
+    )
+    parser.add_argument(
+        "--delete-memory-line",
+        metavar="LINE",
+        type=int,
+        help="Delete a line from project memory by line number.",
+    )
+    parser.add_argument(
+        "--stale-memory-days",
+        metavar="DAYS",
+        type=int,
+        help="Show project memory notes older than DAYS.",
+    )
+    parser.add_argument(
         "--eval",
         action="store_true",
         help="Run the built-in local evaluation harness.",
@@ -165,6 +182,18 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.remember:
         print(remember_note(args.remember, workspace=args.workspace))
+        return
+
+    if args.compress_memory:
+        print(compress_memory(workspace=args.workspace))
+        return
+
+    if args.delete_memory_line is not None:
+        print(delete_memory_line(args.delete_memory_line, workspace=args.workspace))
+        return
+
+    if args.stale_memory_days is not None:
+        print(show_stale_memory(args.stale_memory_days, workspace=args.workspace))
         return
 
     if args.eval:
@@ -257,6 +286,21 @@ def show_memory(*, workspace: str | None = None) -> str:
 def remember_note(note: str, *, workspace: str | None = None) -> str:
     config = load_config(workspace=workspace, interactive=False)
     return ProjectMemory(config.workspace_root).remember(note)
+
+
+def compress_memory(*, workspace: str | None = None) -> str:
+    config = load_config(workspace=workspace, interactive=False)
+    return ProjectMemory(config.workspace_root).compress_sessions()
+
+
+def delete_memory_line(line_number: int, *, workspace: str | None = None) -> str:
+    config = load_config(workspace=workspace, interactive=False)
+    return ProjectMemory(config.workspace_root).delete_project_memory_line(line_number)
+
+
+def show_stale_memory(days: int, *, workspace: str | None = None) -> str:
+    config = load_config(workspace=workspace, interactive=False)
+    return ProjectMemory(config.workspace_root).format_stale_notes(older_than_days=days)
 
 
 def run_evals(*, workspace: str | None = None) -> str:

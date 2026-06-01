@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.3：Advanced Memory
+- Phase 4.1：Skill System
 
 ## Roadmap 总览
 
@@ -627,27 +627,27 @@ User Goal
 
 名称：
 
-- Advanced Memory
+- Skill System
 
 目标：
 
-- 从简单记忆升级到可压缩、可审查、可删除的记忆系统。
+- 让 Agent 可以根据任务加载本地 skill 说明，形成可扩展能力库。
 
 第一小步：
 
-- 设计 memory compressor，把 session summaries 压缩成短摘要。
+- 设计 skill metadata 和目录结构。
 
 第二小步：
 
-- 增加 memory review/delete 命令。
+- 实现 skill loader 和选择逻辑。
 
 第三小步：
 
-- 增加 stale memory detection。
+- 把选中的 skill 注入 prompt/context，但不绕过工具安全。
 
 完成标准：
 
-- 原有 `--memory` / `--remember` 不回退。
-- memory 可审查、可删除。
-- 压缩后上下文更短且可解释。
+- 无 skill 时行为不变。
+- skill 可审查、可禁用。
+- skill 不直接执行工具。
 - 全量测试通过。

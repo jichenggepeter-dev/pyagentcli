@@ -75,9 +75,15 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 - `--remember`
 - `--memory`
+- `--compress-memory`
+- `--delete-memory-line`
+- `--stale-memory-days`
 - project memory under `.pyagent/memory/project.md`
 - session summaries under `.pyagent/memory/sessions/`
 - project memory injection before task execution
+- deterministic session compression
+- explicit memory deletion
+- stale memory reporting
 
 ### Reviewer
 
@@ -150,8 +156,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced Memory**
-   Add memory compression, stale memory detection, and memory review/delete commands.
+1. **Skill System**
+   Add local skill metadata, loader, and prompt injection.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.
