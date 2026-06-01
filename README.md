@@ -16,6 +16,7 @@ It is not a plain chatbot wrapper. PyAgentCLI provides a local agent runtime aro
 - Memory: project notes and session summaries under `.pyagent/memory/`
 - Reviewer: deterministic post-plan review with risk notes and suggested tests
 - Eval Harness: deterministic local evals with JSONL reports
+- MCP v0.1: stdio client, `tools/list`, `tools/call`, and safe read-only tool adapter
 
 ## Architecture
 
@@ -51,6 +52,7 @@ The model never mutates the workspace directly. It emits tool calls, and PyAgent
 - [Memory](docs/memory.md)
 - [Reviewer](docs/reviewer.md)
 - [Eval Harness](docs/evals.md)
+- [MCP](docs/mcp.md)
 - [Real Model Demo](docs/e2e_real_model_demo.md)
 
 ## Quick Start

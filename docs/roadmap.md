@@ -79,14 +79,15 @@ PyAgentCLI is a local Python AI Coding Agent CLI inspired by Claude Code, Codex 
 - JSONL reports under `.pyagent/evals/`
 - initial cases for tool registry, safety, RAG, and memory
 
-## Not Yet Built
-
 ### MCP v0.1
 
-- MCP client
-- MCP tool adapter
-- remote tool risk classification
-- MCP audit integration
+- minimal stdio MCP client
+- JSON-RPC initialize/list/call flow
+- MCP tool adapter for the existing `ToolRegistry`
+- read-only MCP tool support via `readOnlyHint`
+- non-read MCP tools classified as `NETWORK` or `CRITICAL` and denied by default policy
+
+## Not Yet Built
 
 ### Browser Tools
 
@@ -129,17 +130,14 @@ PyAgentCLI is a local Python AI Coding Agent CLI inspired by Claude Code, Codex 
 
 ## Recommended Next Phases
 
-1. **Project polish**
-   Make installation and testing smooth, clean generated files, and add a reproducible demo script.
+1. **MCP config and CLI integration**
+   Load local MCP server definitions from project config and register read-only MCP tools in agent runs.
 
-2. **MCP v0.1**
-   Add a minimal MCP client and expose MCP tools through the existing ToolRegistry.
-
-3. **Browser v0.1**
+2. **Browser v0.1**
    Add Playwright tools for local UI inspection and verification.
 
-4. **Model-backed Eval v0.2**
+3. **Model-backed Eval v0.2**
    Add fixture workspaces and expected outcomes for real coding tasks.
 
-5. **Advanced Multi-Agent**
+4. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate agent roles with explicit contracts.
