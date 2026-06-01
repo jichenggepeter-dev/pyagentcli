@@ -20,6 +20,7 @@ Advanced RAG v0.1 adds:
 - `RetrievalHit` with source and score fields
 - SQLite `chunk_vectors` table for optional vector persistence
 - vector + FTS deduping in `HybridRetriever`
+- Python import graph extraction into SQLite
 
 When no embedding provider is configured, vector retrieval is disabled and `search_index` behaves like the previous SQLite FTS search.
 
@@ -198,6 +199,31 @@ Each row stores:
 
 `HybridRetriever` can then query the vector table and merge vector hits with FTS hits.
 
+## Python Import Graph
+
+During indexing, PyAgentCLI extracts Python imports into:
+
+```text
+python_imports
+```
+
+Each row stores:
+
+- path
+- imported module
+- imported name
+- relative import level
+- source line
+
+The indexer exposes:
+
+```python
+CodeIndexer(workspace).imports_for("src/app.py")
+CodeIndexer(workspace).imported_by("helpers")
+```
+
+This is the first dependency-graph signal for retrieval. It does not change default `search_index` output yet; it creates the data layer for future dependency-aware context injection.
+
 ## Embedding Config
 
 Embedding providers can be configured in `pyagent.toml`:
@@ -231,6 +257,6 @@ If the embedding provider is not configured, missing, or fails during indexing/s
 ## Next Steps
 
 1. Add symbol-aware chunking for more languages.
-2. Add import graph or dependency graph signals.
+2. Add dependency-aware retrieval output or a dedicated dependency search tool.
 3. Add multi-language symbol chunking.
 4. Add automatic index refresh as an explicit approved action.

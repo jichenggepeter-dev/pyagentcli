@@ -65,6 +65,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - hybrid FTS/vector result deduping
 - configurable hash and OpenAI-compatible embedding providers
 - embedding failure fallback to FTS
+- Python import graph extraction
+- import dependency query API
 
 ### Memory
 
@@ -126,7 +128,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced RAG
 
-- import graph or dependency graph
+- dependency-aware retrieval output or tool
 - multi-language symbol chunking
 
 ### Advanced Memory
@@ -144,8 +146,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced RAG import graph**
-   Add Python import/dependency graph signals to improve code retrieval.
+1. **Advanced RAG dependency tool**
+   Expose import graph queries through a safe read-only tool or retrieval context.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.

@@ -124,3 +124,53 @@ def test_code_indexer_can_persist_chunk_vectors(tmp_path: Path) -> None:
         rows = connection.execute("SELECT path, provider, dimensions FROM chunk_vectors").fetchall()
 
     assert rows == [("README.md", "hash", 8)]
+
+
+def test_code_indexer_extracts_python_import_graph(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text(
+        "\n".join(
+            [
+                "import os",
+                "import pathlib as pl",
+                "from collections import defaultdict",
+                "from .helpers import normalize",
+                "",
+                "def run():",
+                "    return normalize(defaultdict)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    indexer = CodeIndexer(tmp_path)
+    indexer.rebuild()
+    edges = indexer.imports_for("src/app.py")
+
+    assert [edge.format_text() for edge in edges] == [
+        "src/app.py:1 imports os",
+        "src/app.py:2 imports pathlib",
+        "src/app.py:3 imports collections:defaultdict",
+        "src/app.py:4 imports .helpers:normalize",
+    ]
+
+
+def test_code_indexer_finds_files_importing_module_or_name(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text(
+        "from helpers import normalize\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "src" / "other.py").write_text(
+        "import helpers\n",
+        encoding="utf-8",
+    )
+
+    indexer = CodeIndexer(tmp_path)
+    indexer.rebuild()
+
+    by_module = indexer.imported_by("helpers")
+    by_name = indexer.imported_by("normalize")
+
+    assert [edge.path for edge in by_module] == ["src/app.py", "src/other.py"]
+    assert [edge.path for edge in by_name] == ["src/app.py"]

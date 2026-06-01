@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,6 +72,20 @@ class IndexSearchResult:
         return f"{prefix}{matches}"
 
 
+@dataclass(frozen=True)
+class ImportEdge:
+    path: str
+    module: str
+    imported_name: str | None
+    level: int
+    line: int
+
+    def format_text(self) -> str:
+        imported = f":{self.imported_name}" if self.imported_name else ""
+        prefix = "." * self.level if self.level else ""
+        return f"{self.path}:{self.line} imports {prefix}{self.module}{imported}"
+
+
 class CodeIndexer:
     def __init__(self, workspace_root: Path, *, embedding_provider: EmbeddingProvider | None = None) -> None:
         self.workspace_root = workspace_root.resolve()
@@ -116,6 +131,7 @@ class CodeIndexer:
                 )
                 chunks = chunk_text(path=relative_path, content=content)
                 _insert_chunks(connection, chunks)
+                _insert_import_edges(connection, path=relative_path, content=content)
                 indexed_vectors += vector_store.insert_chunks(connection, chunks, provider=self.embedding_provider)
                 indexed_chunks += len(chunks)
                 indexed += 1
@@ -209,6 +225,36 @@ class CodeIndexer:
         with sqlite3.connect(self.database_path) as connection:
             return _find_stale_paths(connection, self.workspace_root)
 
+    def imports_for(self, path: str) -> list[ImportEdge]:
+        if not self.database_path.exists():
+            raise FileNotFoundError(f"Index does not exist: {self.database_path}")
+        with sqlite3.connect(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT path, module, imported_name, level, line
+                FROM python_imports
+                WHERE path = ?
+                ORDER BY line, module, imported_name
+                """,
+                (path,),
+            ).fetchall()
+        return _import_edges_from_rows(rows)
+
+    def imported_by(self, module: str) -> list[ImportEdge]:
+        if not self.database_path.exists():
+            raise FileNotFoundError(f"Index does not exist: {self.database_path}")
+        with sqlite3.connect(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT path, module, imported_name, level, line
+                FROM python_imports
+                WHERE module = ? OR imported_name = ?
+                ORDER BY path, line, module, imported_name
+                """,
+                (module, module),
+            ).fetchall()
+        return _import_edges_from_rows(rows)
+
     @staticmethod
     def _init_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
@@ -247,6 +293,18 @@ class CodeIndexer:
             """
         )
         SQLiteVectorStore(Path()).init_schema(connection)
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS python_imports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path TEXT NOT NULL,
+                module TEXT NOT NULL,
+                imported_name TEXT,
+                level INTEGER NOT NULL DEFAULT 0,
+                line INTEGER NOT NULL
+            )
+            """
+        )
 
 
 def _iter_indexable_files(root: Path):
@@ -273,11 +331,36 @@ def _insert_chunks(connection: sqlite3.Connection, chunks: list[CodeChunk]) -> N
         )
 
 
+def _insert_import_edges(connection: sqlite3.Connection, *, path: str, content: str) -> None:
+    if not path.endswith(".py"):
+        return
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                connection.execute(
+                    "INSERT INTO python_imports(path, module, imported_name, level, line) VALUES (?, ?, ?, ?, ?)",
+                    (path, alias.name, None, 0, int(node.lineno)),
+                )
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            for alias in node.names:
+                connection.execute(
+                    "INSERT INTO python_imports(path, module, imported_name, level, line) VALUES (?, ?, ?, ?, ?)",
+                    (path, module, alias.name, int(node.level), int(node.lineno)),
+                )
+
+
 def _drop_rebuildable_tables(connection: sqlite3.Connection) -> None:
     connection.execute("DROP TABLE IF EXISTS files_fts")
     connection.execute("DROP TABLE IF EXISTS chunks_fts")
     connection.execute("DROP TABLE IF EXISTS chunks")
     connection.execute("DROP TABLE IF EXISTS chunk_vectors")
+    connection.execute("DROP TABLE IF EXISTS python_imports")
 
 
 def _find_stale_paths(connection: sqlite3.Connection, workspace_root: Path) -> list[str]:
@@ -321,3 +404,16 @@ def _coerce_max_results(value: Any) -> int:
         return max(1, min(int(value), 100))
     except (TypeError, ValueError):
         return 20
+
+
+def _import_edges_from_rows(rows) -> list[ImportEdge]:
+    return [
+        ImportEdge(
+            path=str(path),
+            module=str(module),
+            imported_name=str(imported_name) if imported_name is not None else None,
+            level=int(level),
+            line=int(line),
+        )
+        for path, module, imported_name, level, line in rows
+    ]

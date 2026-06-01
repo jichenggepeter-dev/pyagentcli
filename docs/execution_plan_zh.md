@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.2d：Advanced RAG Import Graph
+- Phase 3.2e：Advanced RAG Dependency Tool
 
 ## Roadmap 总览
 
@@ -627,27 +627,27 @@ User Goal
 
 名称：
 
-- Advanced RAG Import Graph
+- Advanced RAG Dependency Tool
 
 目标：
 
-- 加入 Python import/dependency graph 信号，让检索能回答“哪些文件互相依赖”。
+- 把 import graph 查询能力暴露成安全只读工具，让 Agent 可以主动查依赖关系。
 
 第一小步：
 
-- 在索引阶段提取 Python import 关系，写入 SQLite。
+- 设计 `search_dependencies` 工具 schema。
 
 第二小步：
 
-- 增加 dependency query 方法，比如查某文件 imports / imported_by。
+- 支持按文件查 imports，按 module/name 查 imported_by。
 
 第三小步：
 
-- 让 HybridRetriever 或新工具能返回 dependency context。
+- 把输出格式做成可读的 path:line dependency list。
 
 完成标准：
 
 - 当前 FTS/RAG Lite 行为不回退。
-- 非 Python 文件不受影响。
-- import graph 可解释。
+- 工具为 READ 风险。
+- 未建立索引时给出清晰错误。
 - 全量测试通过。
