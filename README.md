@@ -10,6 +10,7 @@ It is not a plain chatbot wrapper. PyAgentCLI provides a local agent runtime aro
 - Filesystem tools: `list_files`, `read_file`, `write_file`, `edit_file`
 - Shell tool: `run_shell`
 - Search tools: `search_files`, `search_text`, `search_index`
+- Browser tool: `inspect_page` for local HTML and localhost inspection
 - Safety: path guardrails, dangerous command denial, approval, audit log
 - Plan-and-Execute: preview, approval, resume, retry, step status tracking
 - RAG Lite: SQLite FTS, Python AST symbol chunks, `@file`, `@folder`, `@symbol`
@@ -54,6 +55,7 @@ The model never mutates the workspace directly. It emits tool calls, and PyAgent
 - [Reviewer](docs/reviewer.md)
 - [Eval Harness](docs/evals.md)
 - [MCP](docs/mcp.md)
+- [Browser](docs/browser.md)
 - [Real Model Demo](docs/e2e_real_model_demo.md)
 
 ## Quick Start

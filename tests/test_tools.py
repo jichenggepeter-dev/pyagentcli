@@ -189,6 +189,52 @@ def test_default_registry_exposes_edit_file_schema() -> None:
     registry = default_registry()
     tool_names = [schema["function"]["name"] for schema in registry.schemas()]
     assert "edit_file" in tool_names
+    assert "inspect_page" in tool_names
+
+
+def test_inspect_page_reads_workspace_html_file(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text(
+        "<html><head><title>Demo Page</title><style>.x{}</style></head>"
+        "<body><h1>Hello PyAgent</h1><script>ignore()</script><p>Status READY</p></body></html>",
+        encoding="utf-8",
+    )
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("inspect_page", {"url": page.as_uri()}, context)
+
+    assert result.ok
+    assert "Title: Demo Page" in result.content
+    assert "Hello PyAgent" in result.content
+    assert "Status READY" in result.content
+    assert "ignore()" not in result.content
+
+
+def test_inspect_page_accepts_workspace_relative_path(tmp_path: Path) -> None:
+    (tmp_path / "site").mkdir()
+    (tmp_path / "site" / "index.html").write_text(
+        "<title>Relative</title><main>Local snapshot</main>",
+        encoding="utf-8",
+    )
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("inspect_page", {"url": "site/index.html"}, context)
+
+    assert result.ok
+    assert "Title: Relative" in result.content
+    assert "Local snapshot" in result.content
+
+
+def test_inspect_page_rejects_external_url(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("inspect_page", {"url": "https://example.com"}, context)
+
+    assert not result.ok
+    assert "Only local browser URLs are allowed" in (result.error or "")
 
 
 def test_search_text_finds_matches(tmp_path: Path) -> None:

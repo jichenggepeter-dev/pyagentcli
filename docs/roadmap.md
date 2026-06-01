@@ -26,6 +26,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - `search_files`
 - `search_text`
 - `search_index`
+- `inspect_page`
 
 ### Safety
 
@@ -91,13 +92,21 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - read-only MCP tool support via `readOnlyHint`
 - non-read MCP tools classified as `NETWORK` or `CRITICAL` and denied by default policy
 
+### Browser v0.1
+
+- local page inspection tool
+- workspace-relative HTML and workspace `file://` support
+- localhost, 127.0.0.1, and ::1 URL support
+- external URL denial by default
+- title and normalized text snapshot extraction
+
 ## Not Yet Built
 
-### Browser Tools
+### Advanced Browser Tools
 
-- Playwright-backed browser tool
-- screenshot and DOM inspection
-- local frontend verification flows
+- Playwright-backed screenshots and DOM inspection
+- console and network logs
+- local frontend interaction flows
 
 ### Multi-Agent v0.2
 
@@ -134,8 +143,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Browser v0.1**
-   Add Playwright tools for local UI inspection and verification.
+1. **Advanced Browser tools**
+   Add Playwright-backed screenshots, DOM inspection, console logs, and local UI interaction.
 
 2. **Model-backed Eval v0.2**
    Add fixture workspaces and expected outcomes for real coding tasks.

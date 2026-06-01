@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.3：Browser v0.1
+- Phase 2.4：Model-backed Eval v0.2
 
 ## Roadmap 总览
 
@@ -408,6 +408,10 @@ enabled = true
 
 ### 2.3 Browser v0.1
 
+状态：
+
+- 已完成。
+
 目标：
 
 - 让 PyAgentCLI 能检查本地 Web 应用页面。
@@ -418,13 +422,12 @@ enabled = true
 - open page
 - get title/url
 - text snapshot
-- screenshot metadata
-- basic console error collection
+- local URL guardrail
 
 建议实现：
 
-- 使用 Playwright。
-- 先只支持本地 URL：`localhost`、`127.0.0.1`、`file://`。
+- v0.1 先使用标准库实现本地页面文本检查，保持无额外浏览器依赖。
+- 只支持本地 URL：`localhost`、`127.0.0.1`、`file://`。
 - 网络站点默认拒绝或审批。
 
 允许修改：
@@ -438,7 +441,6 @@ enabled = true
 
 - 能打开本地测试页面。
 - 能返回标题和文本。
-- 能捕获基础错误。
 - 风险等级明确。
 
 测试：
@@ -613,27 +615,27 @@ User Goal
 
 名称：
 
-- Browser v0.1
+- Model-backed Eval v0.2
 
 目标：
 
-- 让 PyAgentCLI 具备本地浏览器检查能力，用于验证 localhost 或 file 页面。
+- 从平台能力 eval 升级到真实 coding task 成功率评估。
 
 第一小步：
 
-- 设计 Browser 工具 schema 和安全策略。
+- 设计 eval fixture workspace 和任务定义结构。
 
 第二小步：
 
-- 实现最小页面检查能力：打开本地 URL，返回 title、url、文本快照。
+- 加入 expected file diff / expected tool usage 的校验。
 
 第三小步：
 
-- 补本地 HTML fixture 测试，验证工具输出和非本地 URL 拒绝策略。
+- 输出 task success rate、tool-call accuracy、safety violation rate。
 
 完成标准：
 
-- 默认不影响现有本地工具。
-- 本地 URL 可检查。
-- 外部网络 URL 默认拒绝或审批。
+- 本地 fixture eval 可重复运行。
+- 不依赖真实模型也能验证 scorer。
+- 后续可接真实模型执行结果。
 - 全量测试通过。
