@@ -7,6 +7,7 @@ from pyagentcli.cli.main import (
     enrich_goal,
     execute_planned_task,
     index_workspace,
+    list_skills,
     list_plans,
     parse_args,
     plan_task,
@@ -37,6 +38,7 @@ def test_parse_memory_flags() -> None:
     delete_args = parse_args(["--delete-memory-line", "3"])
     stale_args = parse_args(["--stale-memory-days", "30"])
     eval_args = parse_args(["--eval"])
+    skills_args = parse_args(["--list-skills"])
 
     assert memory_args.memory is True
     assert remember_args.remember == "Use focused edits."
@@ -44,6 +46,7 @@ def test_parse_memory_flags() -> None:
     assert delete_args.delete_memory_line == 3
     assert stale_args.stale_memory_days == 30
     assert eval_args.eval is True
+    assert skills_args.list_skills is True
 
 
 def test_execute_planned_task_non_interactive_does_not_execute(tmp_path, monkeypatch) -> None:
@@ -360,6 +363,48 @@ def test_enrich_goal_loads_project_memory(tmp_path) -> None:
 
     assert "Project memory follows" in enriched
     assert "Project prefers focused tests." in enriched
+
+
+def test_enrich_goal_loads_skill_context(tmp_path) -> None:
+    skill_dir = tmp_path / ".pyagent" / "skills" / "python-testing"
+    skill_dir.mkdir(parents=True)
+    skill_dir.joinpath("skill.toml").write_text(
+        """
+name = "python-testing"
+description = "Python testing workflow."
+triggers = ["pytest"]
+enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+    skill_dir.joinpath("SKILL.md").write_text("Run focused pytest before finishing.", encoding="utf-8")
+
+    enriched = enrich_goal("Please run pytest", workspace=str(tmp_path))
+
+    assert "Skill guidance follows" in enriched
+    assert "Python testing workflow." in enriched
+    assert "Run focused pytest before finishing." in enriched
+
+
+def test_list_skills_outputs_enabled_local_skills(tmp_path) -> None:
+    skill_dir = tmp_path / ".pyagent" / "skills" / "python-testing"
+    skill_dir.mkdir(parents=True)
+    skill_dir.joinpath("skill.toml").write_text(
+        """
+name = "python-testing"
+description = "Python testing workflow."
+triggers = ["pytest"]
+enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+    skill_dir.joinpath("SKILL.md").write_text("Run focused pytest before finishing.", encoding="utf-8")
+
+    result = list_skills(workspace=str(tmp_path))
+
+    assert "Skills:" in result
+    assert "python-testing" in result
+    assert "pytest" in result
 
 
 def test_show_and_remember_memory(tmp_path) -> None:

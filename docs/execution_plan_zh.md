@@ -32,10 +32,11 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 - Phase 1：本地 AI Coding Agent CLI 核心闭环
 - Phase 2.1：MCP v0.1 客户端和工具适配器
+- Phase 4.1：Skill System v0.1
 
 当前推荐继续：
 
-- Phase 4.1：Skill System
+- Phase 4.2：Release and Packaging
 
 ## Roadmap 总览
 
@@ -45,7 +46,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 | Phase 1 | Agent Loop、工具、安全、RAG Lite、Memory、Reviewer、Eval | 已完成 |
 | Phase 2 | MCP、Browser、真实扩展能力 | 进行中 |
 | Phase 3 | Multi-Agent、Advanced RAG、Advanced Memory | 未开始 |
-| Phase 4 | Skill System、Model-backed Eval、工程化发布 | 未开始 |
+| Phase 4 | Skill System、Model-backed Eval、工程化发布 | 进行中 |
 
 ## Phase 1：核心 Agent CLI
 
@@ -589,6 +590,10 @@ User Goal
 - skill 不直接绕过工具安全。
 - skill 的启用可追踪。
 
+状态：
+
+- 已完成 v0.1：本地 `skill.toml`、`SKILL.md`、关键词选择、上下文注入、`--list-skills`。
+
 ### 4.2 发布和安装
 
 目标：
@@ -627,27 +632,28 @@ User Goal
 
 名称：
 
-- Skill System
+- Release and Packaging
 
 目标：
 
-- 让 Agent 可以根据任务加载本地 skill 说明，形成可扩展能力库。
+- 让 PyAgentCLI 从本地 demo 进入可安装、可验证、可发布状态。
 
 第一小步：
 
-- 设计 skill metadata 和目录结构。
+- 校验 `pyproject.toml` 的包元数据、console script、Python 版本约束和依赖声明。
 
 第二小步：
 
-- 实现 skill loader 和选择逻辑。
+- 增加 clean checkout 安装 smoke test，确认 `pyagent --help`、`--index`、`--eval` 可复现。
 
 第三小步：
 
-- 把选中的 skill 注入 prompt/context，但不绕过工具安全。
+- 编写 GitHub release checklist，明确 tag、版本号、测试、README quick start 和变更摘要。
 
 完成标准：
 
-- 无 skill 时行为不变。
-- skill 可审查、可禁用。
-- skill 不直接执行工具。
+- 本地 editable install 可用。
+- CLI entry point 可用。
 - 全量测试通过。
+- README quick start 与真实命令一致。
+- release checklist 可直接用于 GitHub 发布。

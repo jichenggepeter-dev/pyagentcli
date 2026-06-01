@@ -85,6 +85,15 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - explicit memory deletion
 - stale memory reporting
 
+### Skill System v0.1
+
+- local skill loader under `.pyagent/skills/`
+- `skill.toml` metadata and `SKILL.md` guidance files
+- trigger-based skill selection
+- bounded prompt injection
+- `--list-skills`
+- skills treated as guidance that cannot override user tasks, safety policy, or approvals
+
 ### Reviewer
 
 - deterministic Reviewer after planned execution
@@ -148,16 +157,10 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - user-level memory
 - memory review and deletion commands
 
-### Skill System
-
-- local skill loader
-- skill metadata
-- skill selection and injection
-
 ## Recommended Next Phases
 
-1. **Skill System**
-   Add local skill metadata, loader, and prompt injection.
+1. **Release and Packaging**
+   Add install smoke tests, CLI metadata checks, and a GitHub release checklist.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.

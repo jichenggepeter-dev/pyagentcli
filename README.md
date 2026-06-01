@@ -18,6 +18,7 @@ It is not a plain chatbot wrapper. PyAgentCLI provides a local agent runtime aro
 - Reviewer: deterministic post-plan review with risk notes and suggested tests
 - Eval Harness: deterministic local evals with JSONL reports
 - MCP v0.1: stdio client, `tools/list`, `tools/call`, and safe read-only tool adapter
+- Skill System v0.1: local prompt-only skills under `.pyagent/skills/`
 
 ## Architecture
 
@@ -26,6 +27,7 @@ CLI / REPL
   -> context enrichment
     -> RAG references: @file / @folder / @symbol
     -> project memory
+    -> skill guidance
   -> Agent Loop
     -> LLM Client
     -> Tool Registry
@@ -57,6 +59,7 @@ The model never mutates the workspace directly. It emits tool calls, and PyAgent
 - [MCP](docs/mcp.md)
 - [Browser](docs/browser.md)
 - [Multi-Agent](docs/multi_agent.md)
+- [Skill System](docs/skills.md)
 - [Real Model Demo](docs/e2e_real_model_demo.md)
 
 ## Quick Start
@@ -77,6 +80,7 @@ PYTHONPATH=src python -m pyagentcli --skip-step PLAN_ID STEP_ID
 PYTHONPATH=src python -m pyagentcli --remember "Prefer edit_file for small edits."
 PYTHONPATH=src python -m pyagentcli --memory
 PYTHONPATH=src python -m pyagentcli --eval
+PYTHONPATH=src python -m pyagentcli --list-skills
 PYTHONPATH=src python -m pyagentcli
 ```
 

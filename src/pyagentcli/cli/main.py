@@ -21,6 +21,7 @@ from pyagentcli.rag.indexer import CodeIndexer
 from pyagentcli.safety.approval import ApprovalHandler
 from pyagentcli.safety.audit_log import AuditLogger
 from pyagentcli.safety.policy import SafetyPolicy
+from pyagentcli.skills.loader import SkillLoader
 from pyagentcli.tools.base import ToolContext
 from pyagentcli.tools.registry import default_registry
 
@@ -56,9 +57,13 @@ def enrich_goal(goal: str, *, workspace: str | None = None) -> str:
     config = load_config(workspace=workspace, interactive=False)
     enriched = inject_context_references(goal, config.workspace_root).enriched_goal
     memory_block = ProjectMemory(config.workspace_root).format_context_block()
-    if not memory_block:
-        return enriched
-    return f"{enriched}\n\n{memory_block}"
+    skill_block = SkillLoader(config.workspace_root).format_context_block(goal)
+    blocks = [enriched]
+    if memory_block:
+        blocks.append(memory_block)
+    if skill_block:
+        blocks.append(skill_block)
+    return "\n\n".join(blocks)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -158,6 +163,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Run the built-in local evaluation harness.",
     )
+    parser.add_argument(
+        "--list-skills",
+        action="store_true",
+        help="List enabled local skills from .pyagent/skills.",
+    )
     return parser.parse_args(argv)
 
 
@@ -198,6 +208,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.eval:
         print(run_evals(workspace=args.workspace))
+        return
+
+    if args.list_skills:
+        print(list_skills(workspace=args.workspace))
         return
 
     if args.show_plan:
@@ -326,6 +340,11 @@ def run_evals(*, workspace: str | None = None) -> str:
         if not result.passed:
             lines.append(f"  {result.message}")
     return "\n".join(lines).rstrip()
+
+
+def list_skills(*, workspace: str | None = None) -> str:
+    config = load_config(workspace=workspace, interactive=False)
+    return SkillLoader(config.workspace_root).format_skill_list()
 
 
 def run_agent_task(goal: str, *, workspace: str | None = None, interactive: bool = True) -> str:
