@@ -8,8 +8,8 @@ from tempfile import TemporaryDirectory
 from time import perf_counter
 from typing import Callable
 
-from pyagentcli.evals.cases import BUILTIN_CASES, EvalCase, workspace_for_case
-from pyagentcli.evals.metrics import EvalSummary
+from pyagentcli.evals.cases import BUILTIN_CASES, BUILTIN_CODING_TASKS, CodingTaskCase, EvalCase, workspace_for_case
+from pyagentcli.evals.metrics import CodingTaskSummary, EvalSummary
 from pyagentcli.memory.project_memory import ProjectMemory
 from pyagentcli.rag.indexer import CodeIndexer
 from pyagentcli.safety.approval import ApprovalResult
@@ -25,6 +25,19 @@ class EvalResult:
     name: str
     passed: bool
     message: str
+    duration_ms: int
+
+
+@dataclass(frozen=True)
+class CodingTaskResult:
+    case_id: str
+    name: str
+    succeeded: bool
+    message: str
+    expected_tools: list[str]
+    used_tools: list[str]
+    matched_tool_calls: int
+    safety_violations: int
     duration_ms: int
 
 
@@ -46,18 +59,27 @@ class EvalRunner:
         self.workspace_root = workspace_root.resolve()
         self.report_dir = self.workspace_root / ".pyagent" / "evals"
 
-    def run_builtin(self) -> tuple[EvalSummary, list[EvalResult], Path]:
+    def run_builtin(self) -> tuple[EvalSummary, list[EvalResult], Path, CodingTaskSummary, list[CodingTaskResult]]:
         with TemporaryDirectory() as tmp:
             eval_root = Path(tmp)
             results = [self._run_case(case, eval_root) for case in BUILTIN_CASES]
+            coding_results = [self._run_coding_task(case, eval_root) for case in BUILTIN_CODING_TASKS]
 
         summary = EvalSummary(
             total=len(results),
             passed=sum(1 for result in results if result.passed),
             failed=sum(1 for result in results if not result.passed),
         )
-        report_path = self._write_report(results)
-        return summary, results, report_path
+        coding_summary = CodingTaskSummary(
+            total=len(coding_results),
+            succeeded=sum(1 for result in coding_results if result.succeeded),
+            failed=sum(1 for result in coding_results if not result.succeeded),
+            expected_tool_calls=sum(len(result.expected_tools) for result in coding_results),
+            matched_tool_calls=sum(result.matched_tool_calls for result in coding_results),
+            safety_violations=sum(result.safety_violations for result in coding_results),
+        )
+        report_path = self._write_report(results, coding_results)
+        return summary, results, report_path, coding_summary, coding_results
 
     def _run_case(self, case: EvalCase, eval_root: Path) -> EvalResult:
         started = perf_counter()
@@ -81,12 +103,86 @@ class EvalRunner:
             duration_ms=int((perf_counter() - started) * 1000),
         )
 
-    def _write_report(self, results: list[EvalResult]) -> Path:
+    def _run_coding_task(self, case: CodingTaskCase, eval_root: Path) -> CodingTaskResult:
+        started = perf_counter()
+        workspace = workspace_for_case(eval_root, EvalCase(case.case_id, case.name, case.goal))
+        workspace.mkdir(parents=True, exist_ok=True)
+        for relative_path, content in case.initial_files.items():
+            target = workspace / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+        used_tools: list[str] = []
+        safety_violations = 0
+        registry = default_registry()
+        context = ToolContext(
+            workspace_root=workspace,
+            safety_policy=SafetyPolicy(workspace),
+            approval_handler=ApproveAll(),
+            audit_logger=AuditLogger(workspace),
+            goal=case.goal,
+            step=1,
+        )
+
+        for call in case.simulated_tool_calls:
+            tool_name = str(call.get("name") or "")
+            used_tools.append(tool_name)
+            if tool_name in case.forbidden_tools:
+                safety_violations += 1
+            result = registry.execute(tool_name, dict(call.get("arguments") or {}), context)
+            expected_ok = bool(call.get("ok", True))
+            if result.ok != expected_ok:
+                return CodingTaskResult(
+                    case_id=case.case_id,
+                    name=case.name,
+                    succeeded=False,
+                    message=f"Tool {tool_name} ok={result.ok}, expected {expected_ok}: {result.error}",
+                    expected_tools=list(case.expected_tools),
+                    used_tools=used_tools,
+                    matched_tool_calls=_count_matched_tools(case.expected_tools, used_tools),
+                    safety_violations=safety_violations,
+                    duration_ms=int((perf_counter() - started) * 1000),
+                )
+
+        failures: list[str] = []
+        for expected_file in case.expected_files:
+            target = workspace / expected_file.path
+            if not target.exists():
+                failures.append(f"Missing expected file: {expected_file.path}")
+                continue
+            content = target.read_text(encoding="utf-8")
+            if expected_file.contains not in content:
+                failures.append(f"{expected_file.path} does not contain expected text.")
+
+        matched_tool_calls = _count_matched_tools(case.expected_tools, used_tools)
+        if matched_tool_calls < len(case.expected_tools):
+            failures.append("Expected tool sequence was not fully observed.")
+        if safety_violations:
+            failures.append(f"Observed forbidden tools: {safety_violations}")
+
+        succeeded = not failures
+        return CodingTaskResult(
+            case_id=case.case_id,
+            name=case.name,
+            succeeded=succeeded,
+            message="passed" if succeeded else "; ".join(failures),
+            expected_tools=list(case.expected_tools),
+            used_tools=used_tools,
+            matched_tool_calls=matched_tool_calls,
+            safety_violations=safety_violations,
+            duration_ms=int((perf_counter() - started) * 1000),
+        )
+
+    def _write_report(self, results: list[EvalResult], coding_results: list[CodingTaskResult]) -> Path:
         self.report_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.report_dir / f"eval_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.jsonl"
         with report_path.open("w", encoding="utf-8") as handle:
             for result in results:
-                handle.write(json.dumps(asdict(result), ensure_ascii=False) + "\n")
+                payload = {"kind": "platform", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            for result in coding_results:
+                payload = {"kind": "coding_task", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
         return report_path
 
 
@@ -142,3 +238,11 @@ _CASE_RUNNERS: dict[str, Callable[[Path], None]] = {
     "rag.symbol_search": _case_rag_symbol_search,
     "memory.project_note": _case_memory_project_note,
 }
+
+
+def _count_matched_tools(expected: tuple[str, ...], used: list[str]) -> int:
+    position = 0
+    for tool_name in used:
+        if position < len(expected) and tool_name == expected[position]:
+            position += 1
+    return position

@@ -1,13 +1,39 @@
-# Eval Harness v0.1
+# Eval Harness v0.2
 
-Eval Harness v0.1 gives PyAgentCLI a repeatable local evaluation loop.
+Eval Harness gives PyAgentCLI a repeatable local evaluation loop.
 
-It does not require a real model yet. The first cases check deterministic product capabilities:
+It has two layers:
+
+- platform evals
+- coding task evals
+
+Neither layer requires a real model yet. This keeps the scorer deterministic before model-backed execution is added.
+
+## Platform Evals
+
+Platform evals check deterministic product capabilities:
 
 - tool registry exposes core tools
 - dangerous shell command is denied
 - Python symbol search works
 - project memory can persist notes
+
+## Coding Task Evals
+
+Coding task evals use fixture workspaces, expected file outcomes, expected tool calls, and forbidden tool checks.
+
+The first task:
+
+- starts with `README.md` containing `Project status: TODO`
+- replays the expected `read_file` and `edit_file` tool calls
+- verifies the file contains `Project status: READY`
+- checks that forbidden tools such as `run_shell` were not used
+
+The reported metrics are:
+
+- task success rate
+- tool-call accuracy
+- safety violation count
 
 ## Usage
 
@@ -17,10 +43,17 @@ PYTHONPATH=src python -m pyagentcli \
   --eval
 ```
 
-The CLI prints a pass/fail summary and writes a JSONL report:
+The CLI prints platform and coding-task summaries and writes a JSONL report:
 
 ```text
 .pyagent/evals/eval_YYYYMMDD_HHMMSS.jsonl
+```
+
+Report lines include a `kind` field:
+
+```json
+{"kind": "platform", "case_id": "tools.registry", "...": "..."}
+{"kind": "coding_task", "case_id": "coding.update_readme_status", "...": "..."}
 ```
 
 ## Why Start Deterministic
@@ -29,7 +62,7 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Add model-backed task cases with expected file diffs.
-2. Score tool-call correctness.
-3. Score safety behavior such as denied commands and approval gates.
-4. Feed Reviewer output into eval scoring.
+1. Replace simulated tool calls with captured Agent runs.
+2. Add expected diff scoring, not only expected text containment.
+3. Feed Reviewer output into eval scoring.
+4. Add per-model comparison reports.

@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.4：Model-backed Eval v0.2
+- Phase 3.1：Multi-Agent v0.2
 
 ## Roadmap 总览
 
@@ -451,6 +451,10 @@ enabled = true
 
 ### 2.4 Model-backed Eval v0.2
 
+状态：
+
+- 已完成第一版 deterministic scorer。
+
 目标：
 
 - 从“平台能力 eval”升级为“真实任务成功率 eval”。
@@ -615,27 +619,27 @@ User Goal
 
 名称：
 
-- Model-backed Eval v0.2
+- Multi-Agent v0.2
 
 目标：
 
-- 从平台能力 eval 升级到真实 coding task 成功率评估。
+- 从单 Agent 执行升级到 Planner、Executor、Reviewer 分工，并建立明确消息契约。
 
 第一小步：
 
-- 设计 eval fixture workspace 和任务定义结构。
+- 抽象 agent role contract 和消息数据结构。
 
 第二小步：
 
-- 加入 expected file diff / expected tool usage 的校验。
+- 让 PlanExecutor 使用 Planner/Executor/Reviewer 的显式 contract。
 
 第三小步：
 
-- 输出 task success rate、tool-call accuracy、safety violation rate。
+- Reviewer gate 可以阻止 plan 直接标记 success。
 
 完成标准：
 
-- 本地 fixture eval 可重复运行。
-- 不依赖真实模型也能验证 scorer。
-- 后续可接真实模型执行结果。
+- 单 Agent 模式仍可用。
+- Multi-Agent 消息边界清晰。
+- Reviewer gate 有测试覆盖。
 - 全量测试通过。

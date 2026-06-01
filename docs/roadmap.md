@@ -81,6 +81,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - deterministic platform evals
 - JSONL reports under `.pyagent/evals/`
 - initial cases for tool registry, safety, RAG, and memory
+- coding task eval fixture with expected file outcome
+- task success rate, tool-call accuracy, and safety violation metrics
 
 ### MCP v0.1
 
@@ -134,20 +136,13 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - skill metadata
 - skill selection and injection
 
-### Model-Backed Eval
-
-- task fixtures with expected file diffs
-- tool-call accuracy scoring
-- task success rate
-- safety violation rate
-
 ## Recommended Next Phases
 
-1. **Advanced Browser tools**
+1. **Advanced Multi-Agent**
+   Split Planner, Executor, and Reviewer into separate agent roles with explicit contracts.
+
+2. **Advanced Browser tools**
    Add Playwright-backed screenshots, DOM inspection, console logs, and local UI interaction.
 
-2. **Model-backed Eval v0.2**
-   Add fixture workspaces and expected outcomes for real coding tasks.
-
-3. **Advanced Multi-Agent**
-   Split Planner, Executor, and Reviewer into separate agent roles with explicit contracts.
+3. **Model-backed Eval v0.3**
+   Replace simulated tool calls with captured Agent runs and expected diff scoring.
