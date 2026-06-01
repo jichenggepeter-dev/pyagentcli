@@ -152,6 +152,17 @@ The index is stored at:
 
 The index stores both file metadata and line-based chunks. Python files are chunked with `ast` into functions, classes, and methods with `symbol_name` and `kind` metadata. Other UTF-8 files use deterministic line windows with overlap, so nearby context is preserved without forcing the Agent to read an entire file. It skips generated and sensitive paths such as `.git`, `.pyagent`, `.venv`, `node_modules`, and `.pytest_cache`.
 
+JavaScript and TypeScript files are also chunked with a lightweight symbol extractor. It recognizes common forms:
+
+- `function name()`
+- `export function name()`
+- `class Name`
+- `export class Name`
+- `const name = (...) => {}`
+- `export const name = (...) => {}`
+
+This is not a full JS/TS parser; it is a dependency-free chunker for common coding-agent retrieval cases.
+
 Search results include a stale-index warning when the current workspace no longer matches the stored file metadata. PyAgentCLI does not silently rebuild the index during a task; it asks the user to run `pyagent --index` so retrieval changes remain explicit and auditable.
 
 Once the index exists, the Agent can call:
@@ -300,6 +311,6 @@ If the embedding provider is not configured, missing, or fails during indexing/s
 ## Next Steps
 
 1. Add symbol-aware chunking for more languages.
-2. Add multi-language symbol chunking.
-3. Add richer dependency context such as imported-by edges.
-4. Add automatic index refresh as an explicit approved action.
+2. Add richer dependency context such as imported-by edges.
+3. Add automatic index refresh as an explicit approved action.
+4. Add model-backed eval cases for RAG retrieval quality.

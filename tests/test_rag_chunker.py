@@ -51,3 +51,32 @@ def test_chunk_text_falls_back_for_invalid_python() -> None:
     assert len(chunks) == 1
     assert chunks[0].kind == "text"
     assert chunks[0].symbol_name is None
+
+
+def test_chunk_text_extracts_javascript_symbols() -> None:
+    content = "\n".join(
+        [
+            "export function projectStatus() {",
+            "  return 'READY';",
+            "}",
+            "",
+            "class Runner {",
+            "  run() {",
+            "    return projectStatus();",
+            "  }",
+            "}",
+            "",
+            "const refreshStatus = async () => {",
+            "  return projectStatus();",
+            "};",
+        ]
+    )
+
+    chunks = chunk_text(path="app.ts", content=content)
+
+    assert [(chunk.symbol_name, chunk.kind, chunk.start_line, chunk.end_line) for chunk in chunks] == [
+        ("projectStatus", "function", 1, 3),
+        ("Runner", "class", 5, 9),
+        ("refreshStatus", "function", 11, 13),
+    ]
+    assert chunks[0].content == "export function projectStatus() {\n  return 'READY';\n}"

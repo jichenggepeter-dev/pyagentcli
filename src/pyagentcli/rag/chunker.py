@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass
 
 
@@ -27,6 +28,10 @@ def chunk_text(
     ) -> list[CodeChunk]:
     if path.endswith(".py"):
         symbol_chunks = _chunk_python_symbols(path=path, content=content)
+        if symbol_chunks:
+            return symbol_chunks
+    if path.endswith((".js", ".jsx", ".ts", ".tsx")):
+        symbol_chunks = _chunk_javascript_symbols(path=path, content=content)
         if symbol_chunks:
             return symbol_chunks
 
@@ -111,3 +116,71 @@ def _parent_class_name(tree: ast.AST, target: ast.AST) -> str | None:
             if child is target:
                 return node.name
     return None
+
+
+JS_SYMBOL_PATTERNS = [
+    ("class", re.compile(r"^\s*(?:export\s+default\s+|export\s+)?class\s+([A-Za-z_$][\w$]*)\b")),
+    (
+        "function",
+        re.compile(r"^\s*(?:export\s+default\s+|export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\("),
+    ),
+    (
+        "function",
+        re.compile(
+            r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>"
+        ),
+    ),
+]
+
+
+def _chunk_javascript_symbols(*, path: str, content: str) -> list[CodeChunk]:
+    lines = content.splitlines()
+    chunks: list[CodeChunk] = []
+    seen: set[tuple[str, int]] = set()
+
+    for index, line in enumerate(lines):
+        for kind, pattern in JS_SYMBOL_PATTERNS:
+            match = pattern.match(line)
+            if not match:
+                continue
+            symbol_name = match.group(1)
+            key = (symbol_name, index + 1)
+            if key in seen:
+                continue
+            seen.add(key)
+            end_line = _find_brace_block_end(lines, index)
+            chunks.append(
+                CodeChunk(
+                    path=path,
+                    start_line=index + 1,
+                    end_line=end_line,
+                    content="\n".join(lines[index:end_line]),
+                    symbol_name=symbol_name,
+                    kind=kind,
+                )
+            )
+            break
+
+    return chunks
+
+
+def _find_brace_block_end(lines: list[str], start_index: int) -> int:
+    depth = 0
+    saw_open = False
+    for index in range(start_index, len(lines)):
+        line = _strip_line_comment(lines[index])
+        for char in line:
+            if char == "{":
+                depth += 1
+                saw_open = True
+            elif char == "}":
+                depth -= 1
+                if saw_open and depth <= 0:
+                    return index + 1
+        if not saw_open and index > start_index:
+            return start_index + 1
+    return len(lines)
+
+
+def _strip_line_comment(line: str) -> str:
+    return line.split("//", 1)[0]

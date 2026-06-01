@@ -69,6 +69,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - import dependency query API
 - `search_dependencies` read-only dependency tool
 - dependency context injection for `@file` and `@symbol`
+- JavaScript and TypeScript symbol chunking for common functions, classes, and arrow functions
 
 ### Memory
 
@@ -130,8 +131,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced RAG
 
-- multi-language symbol chunking
 - richer dependency context such as imported-by edges
+- retrieval quality eval cases
 
 ### Advanced Memory
 
@@ -148,8 +149,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced RAG multi-language symbols**
-   Add symbol-aware chunking for JavaScript/TypeScript or another common project language.
+1. **Advanced RAG retrieval evals**
+   Add eval cases that measure symbol lookup, dependency context, and hybrid retrieval quality.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.

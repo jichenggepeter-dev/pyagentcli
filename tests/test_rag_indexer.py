@@ -86,6 +86,35 @@ def test_code_indexer_searches_exact_python_symbols(tmp_path: Path) -> None:
     assert method_result.hits[0].symbol_name == "Runner.run"
 
 
+def test_code_indexer_searches_typescript_symbols(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.ts").write_text(
+        "\n".join(
+            [
+                "export function projectStatus() {",
+                "  return 'READY';",
+                "}",
+                "",
+                "const refreshStatus = () => {",
+                "  return projectStatus();",
+                "};",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    indexer = CodeIndexer(tmp_path)
+    indexer.rebuild()
+    function_result = indexer.search_symbol("projectStatus")
+    arrow_result = indexer.search_symbol("refreshStatus")
+
+    assert function_result.hits[0].path == "src/app.ts"
+    assert function_result.hits[0].kind == "function"
+    assert function_result.hits[0].symbol_name == "projectStatus"
+    assert arrow_result.hits[0].kind == "function"
+    assert arrow_result.hits[0].symbol_name == "refreshStatus"
+
+
 def test_code_indexer_reports_changed_files_as_stale(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     target = tmp_path / "src" / "app.py"

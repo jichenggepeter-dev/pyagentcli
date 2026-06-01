@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.2g：Advanced RAG Multi-Language Symbols
+- Phase 3.2h：Advanced RAG Retrieval Evals
 
 ## Roadmap 总览
 
@@ -627,27 +627,27 @@ User Goal
 
 名称：
 
-- Advanced RAG Multi-Language Symbols
+- Advanced RAG Retrieval Evals
 
 目标：
 
-- 为 JavaScript/TypeScript 等常见项目语言增加 symbol-aware chunking。
+- 增加专门评估 RAG 检索质量的 eval cases。
 
 第一小步：
 
-- 设计非 Python symbol chunker 的轻量解析策略。
+- 设计 symbol lookup eval：Python + TypeScript。
 
 第二小步：
 
-- 支持函数、类、导出函数等基础 symbol。
+- 设计 dependency context eval。
 
 第三小步：
 
-- 补索引和 `@symbol` 注入测试。
+- 把 RAG eval 指标接入 Eval Harness。
 
 完成标准：
 
 - 当前 FTS/RAG Lite 行为不回退。
-- Python chunking 不回退。
-- 新语言 chunking 有测试覆盖。
+- eval 可重复运行。
+- 报告里能看到 RAG retrieval 质量指标。
 - 全量测试通过。
