@@ -35,6 +35,8 @@ def test_reviewer_reports_risks_and_suggested_tests(tmp_path: Path) -> None:
 
     report = Reviewer(tmp_path).review_plan(run)
 
+    assert report.gate.passed is True
+    assert "Gate: pass" in report.format_text()
     assert "WRITE step present" in report.format_text()
     assert "EXECUTE step present" in report.format_text()
     assert "Run the focused Python test suite" in report.format_text()
@@ -57,5 +59,9 @@ def test_reviewer_notes_failed_and_skipped_steps(tmp_path: Path) -> None:
 
     report = Reviewer(tmp_path).review_plan(run)
 
+    assert report.gate.passed is False
+    assert "Gate: block" in report.format_text()
+    assert "step status present: failed" in report.format_text()
+    assert "step status present: skipped" in report.format_text()
     assert "At least one step failed" in report.format_text()
     assert "At least one step was skipped" in report.format_text()

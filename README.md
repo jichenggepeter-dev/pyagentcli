@@ -56,6 +56,7 @@ The model never mutates the workspace directly. It emits tool calls, and PyAgent
 - [Eval Harness](docs/evals.md)
 - [MCP](docs/mcp.md)
 - [Browser](docs/browser.md)
+- [Multi-Agent](docs/multi_agent.md)
 - [Real Model Demo](docs/e2e_real_model_demo.md)
 
 ## Quick Start

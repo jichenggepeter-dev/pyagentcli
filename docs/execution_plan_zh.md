@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.1：Multi-Agent v0.2
+- Phase 3.2：Advanced RAG
 
 ## Roadmap 总览
 
@@ -487,6 +487,10 @@ enabled = true
 
 ### 3.1 Multi-Agent v0.2
 
+状态：
+
+- 已完成第一版 contract 和 Reviewer gate。
+
 目标：
 
 - 从单 Agent 执行升级到 Planner、Executor、Reviewer 分工。
@@ -619,27 +623,27 @@ User Goal
 
 名称：
 
-- Multi-Agent v0.2
+- Advanced RAG
 
 目标：
 
-- 从单 Agent 执行升级到 Planner、Executor、Reviewer 分工，并建立明确消息契约。
+- 从 Lite 检索升级到更接近 coding agent 的代码理解能力。
 
 第一小步：
 
-- 抽象 agent role contract 和消息数据结构。
+- 设计 embedding provider interface，并保持无 key 时 FTS 仍可用。
 
 第二小步：
 
-- 让 PlanExecutor 使用 Planner/Executor/Reviewer 的显式 contract。
+- 加入 hybrid retrieval 结果结构：FTS + optional vector hits。
 
 第三小步：
 
-- Reviewer gate 可以阻止 plan 直接标记 success。
+- 为后续 import graph / reranker 预留接口，但不一次性实现所有能力。
 
 完成标准：
 
-- 单 Agent 模式仍可用。
-- Multi-Agent 消息边界清晰。
-- Reviewer gate 有测试覆盖。
+- 当前 FTS/RAG Lite 行为不回退。
+- embedding 未配置时系统不报错。
+- retrieval result 可解释。
 - 全量测试通过。

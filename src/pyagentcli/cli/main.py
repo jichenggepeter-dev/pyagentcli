@@ -544,12 +544,15 @@ def _record_plan_memory(workspace_root, run: PlanRun) -> None:
 
 def _review_plan_execution(workspace_root, store: PlanStore, run: PlanRun) -> PlanRun:
     report = Reviewer(workspace_root).review_plan(run)
+    status = run.status
+    if run.status == PlanRunStatus.SUCCESS and not report.gate.passed:
+        status = PlanRunStatus.FAILED
     return store.save(
         PlanRun(
             plan_id=run.plan_id,
             goal=run.goal,
             plan=run.plan,
-            status=run.status,
+            status=status,
             execution_result=run.execution_result,
             review_result=report.format_text(),
             created_at=run.created_at,

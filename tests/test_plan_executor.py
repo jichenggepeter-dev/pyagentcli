@@ -67,6 +67,7 @@ def test_plan_executor_runs_steps_serially(tmp_path: Path) -> None:
     assert "S2: edit complete" in (completed.execution_result or "")
     assert len(calls) == 2
     assert "Step S1: Read" in calls[0]
+    assert "Role: Executor Agent" in calls[0]
     assert "Step S2: Edit" in calls[1]
     assert len(approval.requests) == 2
 

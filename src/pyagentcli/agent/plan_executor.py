@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pyagentcli.agent.contracts import ExecutorStepContract
 from pyagentcli.agent.plan_store import PlanStore
 from pyagentcli.agent.planner import PlanRun, PlanRunStatus, PlanStep
 from pyagentcli.safety.approval import ApprovalHandler
@@ -128,16 +129,7 @@ class PlanExecutor:
 
 
 def _format_step_goal(original_goal: str, step: PlanStep) -> str:
-    tools = ", ".join(step.suggested_tools) if step.suggested_tools else "none"
-    return (
-        "Execute exactly this approved plan step. Use tools when workspace information or changes are needed.\n\n"
-        f"Original task:\n{original_goal}\n\n"
-        f"Step {step.id}: {step.title}\n"
-        f"Risk: {step.risk}\n"
-        f"Suggested tools: {tools}\n"
-        f"Step instructions:\n{step.description}\n\n"
-        "Stop after this step and summarize what happened."
-    )
+    return ExecutorStepContract.from_step(original_goal=original_goal, step=step).format_goal()
 
 
 def _approve_step(step: PlanStep, approval_handler: ApprovalHandler):

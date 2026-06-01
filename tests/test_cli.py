@@ -1,6 +1,7 @@
 from pyagentcli.agent.plan_store import PlanStore
 from pyagentcli.agent.planner import PlanPreview, PlanRun, PlanRunStatus, PlanStep
 from pyagentcli.cli.main import (
+    _review_plan_execution,
     enrich_goal,
     execute_planned_task,
     index_workspace,
@@ -283,6 +284,31 @@ def test_skip_step_marks_step_skipped(tmp_path) -> None:
     assert "[skipped] Optional" in result
     assert reloaded.plan.steps[0].status == "skipped"
     assert reloaded.plan.steps[0].result_summary == "Skipped by user."
+
+
+def test_review_gate_blocks_successful_plan_with_skipped_step(tmp_path) -> None:
+    store = PlanStore(tmp_path)
+    saved = store.save(
+        PlanRun(
+            plan_id="plan_gate",
+            goal="update docs",
+            status=PlanRunStatus.SUCCESS,
+            execution_result="S1 ok\nS2 skipped",
+            plan=PlanPreview(
+                summary="Gate",
+                steps=[
+                    PlanStep(id="S1", title="Read", description="Read.", risk="READ", status="success"),
+                    PlanStep(id="S2", title="Edit", description="Edit.", risk="WRITE", status="skipped"),
+                ],
+            ),
+        )
+    )
+
+    reviewed = _review_plan_execution(tmp_path, store, saved)
+
+    assert reviewed.status == PlanRunStatus.FAILED
+    assert reviewed.review_result is not None
+    assert "Gate: block" in reviewed.review_result
 
 
 def test_set_step_status_rejects_invalid_status(tmp_path) -> None:

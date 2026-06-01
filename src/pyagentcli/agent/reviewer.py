@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from pyagentcli.agent.contracts import ReviewerGateDecision, ReviewerInputContract
 from pyagentcli.agent.planner import PlanRun
 
 
@@ -15,9 +16,12 @@ class ReviewReport:
     suggested_tests: list[str]
     tools: list[str]
     paths: list[str]
+    gate: ReviewerGateDecision
 
     def format_text(self) -> str:
         lines = [f"Review: {self.summary}", ""]
+        lines.append(self.gate.format_text())
+        lines.append("")
         lines.append("Risks:")
         lines.extend(f"- {risk}" for risk in (self.risks or ["No obvious risks found."]))
         lines.append("")
@@ -38,16 +42,19 @@ class Reviewer:
         self.reviews_dir = self.workspace_root / ".pyagent" / "reviews"
 
     def review_plan(self, run: PlanRun) -> ReviewReport:
+        reviewer_input = ReviewerInputContract(run=run)
         tools, paths = self._audit_summary(run)
         risks = _risk_notes(run)
         suggested_tests = _suggest_tests(run, paths)
         summary = _summary(run, paths)
+        gate = _gate_decision(reviewer_input)
         report = ReviewReport(
             summary=summary,
             risks=risks,
             suggested_tests=suggested_tests,
             tools=tools,
             paths=paths,
+            gate=gate,
         )
         self.save(run, report)
         return report
@@ -130,3 +137,10 @@ def _suggest_tests(run: PlanRun, paths: list[str]) -> list[str]:
     if "EXECUTE" in risks:
         suggestions.append("Re-run approved shell verification if the output was inconclusive.")
     return suggestions
+
+
+def _gate_decision(reviewer_input: ReviewerInputContract) -> ReviewerGateDecision:
+    blocking_statuses = {"failed", "skipped", "cancelled"}
+    observed = sorted(status for status in set(reviewer_input.step_statuses) if status in blocking_statuses)
+    reasons = tuple(f"step status present: {status}" for status in observed)
+    return ReviewerGateDecision(passed=not reasons, reasons=reasons)

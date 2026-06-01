@@ -74,6 +74,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - review result persisted into plan JSON
 - Markdown review artifact under `.pyagent/reviews/`
 - risk notes and suggested tests
+- Reviewer gate prevents skipped, failed, or cancelled steps from being marked successful
 
 ### Eval Harness
 
@@ -102,6 +103,13 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - external URL denial by default
 - title and normalized text snapshot extraction
 
+### Multi-Agent v0.2
+
+- explicit Planner / Executor / Reviewer role contracts
+- `ExecutorStepContract` for step-level execution
+- `ReviewerGateDecision` for final plan status gating
+- Reviewer gate can downgrade a successful execution to failed when steps were skipped, failed, or cancelled
+
 ## Not Yet Built
 
 ### Advanced Browser Tools
@@ -109,12 +117,6 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - Playwright-backed screenshots and DOM inspection
 - console and network logs
 - local frontend interaction flows
-
-### Multi-Agent v0.2
-
-- model-separated Planner / Executor / Reviewer
-- message contract between agents
-- reviewer gate before marking plan complete
 
 ### Advanced RAG
 
@@ -139,7 +141,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 ## Recommended Next Phases
 
 1. **Advanced Multi-Agent**
-   Split Planner, Executor, and Reviewer into separate agent roles with explicit contracts.
+   Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.
 
 2. **Advanced Browser tools**
    Add Playwright-backed screenshots, DOM inspection, console logs, and local UI interaction.
