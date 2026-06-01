@@ -1,0 +1,153 @@
+# RAG Lite
+
+RAG Lite is PyAgentCLI's first code-retrieval layer.
+
+The first version intentionally avoids embeddings and vector databases. It starts with two deterministic local search tools:
+
+```text
+search_files(query, path=".", max_results=20, case_sensitive=false)
+search_text(query, path=".", max_results=20, case_sensitive=false)
+search_index(query, max_results=20)
+```
+
+## Why Start With Text Search
+
+For coding agents, a lot of useful retrieval is exact:
+
+- Function names
+- Class names
+- Error messages
+- Config keys
+- CLI commands
+- TODO markers
+- Test names
+
+Exact search is predictable, cheap, local, and easy to audit.
+
+## Tool Behavior
+
+`search_files`:
+
+- Searches workspace file paths and basenames.
+- Returns relative file paths.
+- Useful when the model knows part of a filename, module path, or extension.
+- Skips generated and sensitive directories.
+- Limits results with `max_results`.
+
+`search_text`:
+
+- Searches only inside the workspace.
+- Returns `path:line:snippet` matches.
+- Skips generated and sensitive directories such as `.git`, `.pyagent`, `.venv`, `node_modules`, and `.pytest_cache`.
+- Skips common binary file suffixes.
+- Limits results with `max_results`.
+
+`search_index`:
+
+- Searches the local SQLite FTS index at `.pyagent/index.sqlite`.
+- Returns indexed chunk locations, symbol labels when available, and short highlighted snippets.
+- Fails safely with a clear message if the index has not been built yet.
+- Warns when indexed files have changed, disappeared, or new indexable files have appeared.
+- Works best for symbols, config keys, error messages, and exact phrases.
+
+## Example
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  "Find where project_status is defined"
+```
+
+The model can first call:
+
+```json
+{
+  "query": "app",
+  "path": ".",
+  "max_results": 20
+}
+```
+
+Then call:
+
+```json
+{
+  "query": "project_status",
+  "path": ".",
+  "max_results": 20
+}
+```
+
+## Explicit Context References
+
+Users can attach small explicit context references directly in a task:
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  "Summarize @README.md and inspect @./"
+```
+
+Supported references:
+
+- `@path/to/file`
+- `@path/to/folder/`
+- `@symbol`
+
+PyAgentCLI resolves references inside the workspace, applies the same path guardrails, and appends a bounded context block to the task. Sensitive paths such as `.env` and `.pyagent` are not injected.
+
+For `@symbol`, PyAgentCLI first checks whether the reference is a real file or folder. If it is not, and the token looks like a code symbol, it first searches exact indexed symbols, then falls back to SQLite FTS and injects the top matching chunks.
+
+Example:
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  --index
+
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  "Explain @project_status"
+```
+
+## SQLite FTS Index
+
+Build a local SQLite FTS index:
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  --index
+```
+
+The index is stored at:
+
+```text
+.pyagent/index.sqlite
+```
+
+The index stores both file metadata and line-based chunks. Python files are chunked with `ast` into functions, classes, and methods with `symbol_name` and `kind` metadata. Other UTF-8 files use deterministic line windows with overlap, so nearby context is preserved without forcing the Agent to read an entire file. It skips generated and sensitive paths such as `.git`, `.pyagent`, `.venv`, `node_modules`, and `.pytest_cache`.
+
+Search results include a stale-index warning when the current workspace no longer matches the stored file metadata. PyAgentCLI does not silently rebuild the index during a task; it asks the user to run `pyagent --index` so retrieval changes remain explicit and auditable.
+
+Once the index exists, the Agent can call:
+
+```json
+{
+  "query": "project_status",
+  "max_results": 20
+}
+```
+
+This returns indexed snippets, then the Agent can use `read_file` for focused follow-up reading.
+
+Example output:
+
+```text
+app.py:1-2 function project_status: def [project_status](): return 'READY'
+```
+
+## Next Steps
+
+1. Add symbol-aware chunking for more languages.
+2. Add embedding retrieval after deterministic retrieval is useful.
+3. Add automatic index refresh as an explicit approved action.

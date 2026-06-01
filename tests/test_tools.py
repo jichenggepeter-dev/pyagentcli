@@ -1,0 +1,331 @@
+from pathlib import Path
+
+from pyagentcli.safety.approval import ApprovalResult
+from pyagentcli.safety.audit_log import AuditLogger
+from pyagentcli.safety.policy import SafetyDecision, SafetyPolicy
+from pyagentcli.tools.base import RiskLevel, ToolContext
+from pyagentcli.tools.registry import default_registry
+
+
+class ApproveAll:
+    def __init__(self) -> None:
+        self.preview: str | None = None
+
+    def request(
+        self,
+        *,
+        tool_name: str,
+        risk_level: RiskLevel,
+        args: dict,
+        decision: SafetyDecision,
+        preview: str | None = None,
+    ) -> ApprovalResult:
+        self.preview = preview
+        return ApprovalResult(True, "approved in test")
+
+
+class DenyAll:
+    def request(
+        self,
+        *,
+        tool_name: str,
+        risk_level: RiskLevel,
+        args: dict,
+        decision: SafetyDecision,
+        preview: str | None = None,
+    ) -> ApprovalResult:
+        return ApprovalResult(False, "denied in test")
+
+
+def make_context(tmp_path: Path, approval) -> ToolContext:
+    return ToolContext(
+        workspace_root=tmp_path,
+        safety_policy=SafetyPolicy(tmp_path),
+        approval_handler=approval,
+        audit_logger=AuditLogger(tmp_path),
+        goal="test goal",
+        step=1,
+    )
+
+
+def test_read_and_write_file_tool(tmp_path: Path) -> None:
+    registry = default_registry()
+    approval = ApproveAll()
+    context = make_context(tmp_path, approval)
+
+    write_result = registry.execute(
+        "write_file",
+        {"path": "notes/hello.md", "content": "hello pyagent"},
+        context,
+    )
+    assert write_result.ok
+    assert (tmp_path / "notes" / "hello.md").read_text(encoding="utf-8") == "hello pyagent"
+    assert approval.preview is not None
+    assert "+hello pyagent" in approval.preview
+
+    read_result = registry.execute("read_file", {"path": "notes/hello.md"}, context)
+    assert read_result.ok
+    assert read_result.content == "hello pyagent"
+
+
+def test_write_file_denied_by_approval(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, DenyAll())
+
+    result = registry.execute("write_file", {"path": "x.txt", "content": "nope"}, context)
+    assert not result.ok
+    assert not (tmp_path / "x.txt").exists()
+
+
+def test_run_shell_dangerous_command_denied_by_policy(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("run_shell", {"command": "rm -rf ."}, context)
+    assert not result.ok
+    assert "denied" in (result.error or "").lower()
+
+
+def test_list_files_skips_pyagent_dir(tmp_path: Path) -> None:
+    (tmp_path / ".pyagent").mkdir()
+    (tmp_path / "README.md").write_text("hello", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("list_files", {"path": "."}, context)
+    assert result.ok
+    assert "README.md" in result.content
+    assert ".pyagent" not in result.content
+
+
+def test_write_file_preview_shows_update_diff(tmp_path: Path) -> None:
+    (tmp_path / "notes.md").write_text("old\n", encoding="utf-8")
+    registry = default_registry()
+    approval = ApproveAll()
+    context = make_context(tmp_path, approval)
+
+    result = registry.execute("write_file", {"path": "notes.md", "content": "new\n"}, context)
+    assert result.ok
+    assert approval.preview is not None
+    assert "-old" in approval.preview
+    assert "+new" in approval.preview
+
+
+def test_edit_file_replaces_unique_text_and_shows_diff(tmp_path: Path) -> None:
+    target = tmp_path / "app.py"
+    target.write_text("def hello():\n    return 'old'\n", encoding="utf-8")
+    registry = default_registry()
+    approval = ApproveAll()
+    context = make_context(tmp_path, approval)
+
+    result = registry.execute(
+        "edit_file",
+        {
+            "path": "app.py",
+            "old_text": "return 'old'",
+            "new_text": "return 'new'",
+        },
+        context,
+    )
+
+    assert result.ok
+    assert target.read_text(encoding="utf-8") == "def hello():\n    return 'new'\n"
+    assert approval.preview is not None
+    assert "-    return 'old'" in approval.preview
+    assert "+    return 'new'" in approval.preview
+
+
+def test_edit_file_refuses_missing_text(tmp_path: Path) -> None:
+    target = tmp_path / "app.py"
+    target.write_text("print('hello')\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute(
+        "edit_file",
+        {"path": "app.py", "old_text": "missing", "new_text": "replacement"},
+        context,
+    )
+
+    assert not result.ok
+    assert "not found" in (result.error or "")
+    assert target.read_text(encoding="utf-8") == "print('hello')\n"
+
+
+def test_edit_file_refuses_ambiguous_text(tmp_path: Path) -> None:
+    target = tmp_path / "app.py"
+    target.write_text("x = 1\nx = 1\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute(
+        "edit_file",
+        {"path": "app.py", "old_text": "x = 1", "new_text": "x = 2"},
+        context,
+    )
+
+    assert not result.ok
+    assert "ambiguous" in (result.error or "")
+    assert target.read_text(encoding="utf-8") == "x = 1\nx = 1\n"
+
+
+def test_edit_file_denied_by_approval(tmp_path: Path) -> None:
+    target = tmp_path / "app.py"
+    target.write_text("x = 1\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, DenyAll())
+
+    result = registry.execute(
+        "edit_file",
+        {"path": "app.py", "old_text": "x = 1", "new_text": "x = 2"},
+        context,
+    )
+
+    assert not result.ok
+    assert target.read_text(encoding="utf-8") == "x = 1\n"
+
+
+def test_default_registry_exposes_edit_file_schema() -> None:
+    registry = default_registry()
+    tool_names = [schema["function"]["name"] for schema in registry.schemas()]
+    assert "edit_file" in tool_names
+
+
+def test_search_text_finds_matches(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("def project_status():\n    return 'READY'\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("Project status: READY\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("search_text", {"query": "READY", "path": ".", "max_results": 10}, context)
+
+    assert result.ok
+    assert "README.md:1: Project status: READY" in result.content
+    assert "src/app.py:2: return 'READY'" in result.content
+
+
+def test_search_text_is_case_insensitive_by_default(tmp_path: Path) -> None:
+    (tmp_path / "README.md").write_text("Project status: READY\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("search_text", {"query": "ready"}, context)
+
+    assert result.ok
+    assert "README.md:1" in result.content
+
+
+def test_search_text_respects_max_results_and_ignores_pyagent(tmp_path: Path) -> None:
+    (tmp_path / ".pyagent").mkdir()
+    (tmp_path / ".pyagent" / "secret.txt").write_text("needle\n", encoding="utf-8")
+    (tmp_path / "a.txt").write_text("needle\nneedle\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("search_text", {"query": "needle", "max_results": 1}, context)
+
+    assert result.ok
+    assert result.content.count("needle") == 1
+    assert ".pyagent" not in result.content
+
+
+def test_default_registry_exposes_search_text_schema() -> None:
+    registry = default_registry()
+    tool_names = [schema["function"]["name"] for schema in registry.schemas()]
+    assert "search_text" in tool_names
+
+
+def test_search_index_reads_sqlite_fts_index(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("def project_status():\n    return 'READY'\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    missing = registry.execute("search_index", {"query": "project_status"}, context)
+
+    assert not missing.ok
+    assert "Index not found" in (missing.error or "")
+
+    from pyagentcli.rag.indexer import CodeIndexer
+
+    CodeIndexer(tmp_path).rebuild()
+    result = registry.execute("search_index", {"query": "project_status"}, context)
+
+    assert result.ok
+    assert "src/app.py:1-2 function project_status:" in result.content
+    assert "[project_status]" in result.content
+    assert result.metadata["stale_paths"] == []
+
+
+def test_search_index_warns_when_index_is_stale(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    target = tmp_path / "src" / "app.py"
+    target.write_text("def project_status():\n    return 'READY'\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    from pyagentcli.rag.indexer import CodeIndexer
+
+    CodeIndexer(tmp_path).rebuild()
+    target.write_text("def project_status():\n    return 'STALE'\n", encoding="utf-8")
+    result = registry.execute("search_index", {"query": "project_status"}, context)
+
+    assert result.ok
+    assert "Warning: index may be stale for: src/app.py" in result.content
+    assert result.metadata["stale_paths"] == ["src/app.py"]
+
+
+def test_default_registry_exposes_search_index_schema() -> None:
+    registry = default_registry()
+    tool_names = [schema["function"]["name"] for schema in registry.schemas()]
+    assert "search_index" in tool_names
+
+
+def test_search_files_finds_filename_and_relative_path(tmp_path: Path) -> None:
+    (tmp_path / "src" / "pyagentcli").mkdir(parents=True)
+    (tmp_path / "src" / "pyagentcli" / "main.py").write_text("print('hi')\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("hello\n", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    by_name = registry.execute("search_files", {"query": "main.py"}, context)
+    by_path = registry.execute("search_files", {"query": "pyagentcli/main"}, context)
+
+    assert by_name.ok
+    assert "src/pyagentcli/main.py" in by_name.content
+    assert by_path.ok
+    assert "src/pyagentcli/main.py" in by_path.content
+
+
+def test_search_files_is_case_insensitive_and_respects_max_results(tmp_path: Path) -> None:
+    (tmp_path / "Alpha.py").write_text("", encoding="utf-8")
+    (tmp_path / "alpha_test.py").write_text("", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("search_files", {"query": "ALPHA", "max_results": 1}, context)
+
+    assert result.ok
+    assert len(result.content.splitlines()) == 1
+    assert "Alpha.py" in result.content or "alpha_test.py" in result.content
+
+
+def test_search_files_ignores_pyagent_dir(tmp_path: Path) -> None:
+    (tmp_path / ".pyagent").mkdir()
+    (tmp_path / ".pyagent" / "plan_secret.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "plan_public.txt").write_text("", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("search_files", {"query": "plan"}, context)
+
+    assert result.ok
+    assert "plan_public.txt" in result.content
+    assert ".pyagent" not in result.content
+
+
+def test_default_registry_exposes_search_files_schema() -> None:
+    registry = default_registry()
+    tool_names = [schema["function"]["name"] for schema in registry.schemas()]
+    assert "search_files" in tool_names
