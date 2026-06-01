@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.2e：Advanced RAG Dependency Tool
+- Phase 3.2f：Advanced RAG Dependency Context
 
 ## Roadmap 总览
 
@@ -627,27 +627,27 @@ User Goal
 
 名称：
 
-- Advanced RAG Dependency Tool
+- Advanced RAG Dependency Context
 
 目标：
 
-- 把 import graph 查询能力暴露成安全只读工具，让 Agent 可以主动查依赖关系。
+- 在 `@file` 或 `@symbol` 上下文注入时，补充有限的 dependency graph context。
 
 第一小步：
 
-- 设计 `search_dependencies` 工具 schema。
+- 为 context injection 增加可选 dependency block。
 
 第二小步：
 
-- 支持按文件查 imports，按 module/name 查 imported_by。
+- 控制依赖上下文大小，避免 prompt 膨胀。
 
 第三小步：
 
-- 把输出格式做成可读的 path:line dependency list。
+- 保持没有 index 时的清晰 fallback。
 
 完成标准：
 
 - 当前 FTS/RAG Lite 行为不回退。
-- 工具为 READ 风险。
-- 未建立索引时给出清晰错误。
+- dependency context 有上限。
+- 未建立 index 时不影响普通 `@file` 注入。
 - 全量测试通过。

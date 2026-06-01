@@ -8,6 +8,8 @@ The first version intentionally avoids embeddings and vector databases. It start
 search_files(query, path=".", max_results=20, case_sensitive=false)
 search_text(query, path=".", max_results=20, case_sensitive=false)
 search_index(query, max_results=20)
+search_dependencies(path="src/app.py")
+search_dependencies(module="helpers")
 ```
 
 Advanced RAG v0.1 adds:
@@ -65,6 +67,13 @@ Exact search is predictable, cheap, local, and easy to audit.
 - Warns when indexed files have changed, disappeared, or new indexable files have appeared.
 - Works best for symbols, config keys, error messages, and exact phrases.
 - Reports metadata about whether vector retrieval is enabled.
+
+`search_dependencies`:
+
+- Searches the indexed Python import graph.
+- With `path`, returns imports used by that file.
+- With `module`, returns files importing that module or imported name.
+- Fails safely if the index has not been built.
 
 ## Example
 
@@ -224,6 +233,24 @@ CodeIndexer(workspace).imported_by("helpers")
 
 This is the first dependency-graph signal for retrieval. It does not change default `search_index` output yet; it creates the data layer for future dependency-aware context injection.
 
+The Agent can also call:
+
+```json
+{
+  "path": "src/app.py"
+}
+```
+
+or:
+
+```json
+{
+  "module": "helpers"
+}
+```
+
+through the `search_dependencies` tool.
+
 ## Embedding Config
 
 Embedding providers can be configured in `pyagent.toml`:
@@ -257,6 +284,6 @@ If the embedding provider is not configured, missing, or fails during indexing/s
 ## Next Steps
 
 1. Add symbol-aware chunking for more languages.
-2. Add dependency-aware retrieval output or a dedicated dependency search tool.
+2. Add dependency-aware context injection.
 3. Add multi-language symbol chunking.
 4. Add automatic index refresh as an explicit approved action.

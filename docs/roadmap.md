@@ -67,6 +67,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - embedding failure fallback to FTS
 - Python import graph extraction
 - import dependency query API
+- `search_dependencies` read-only dependency tool
 
 ### Memory
 
@@ -128,7 +129,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced RAG
 
-- dependency-aware retrieval output or tool
+- dependency-aware context injection
 - multi-language symbol chunking
 
 ### Advanced Memory
@@ -146,8 +147,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced RAG dependency tool**
-   Expose import graph queries through a safe read-only tool or retrieval context.
+1. **Advanced RAG dependency context**
+   Inject dependency graph context for `@file` or symbol references when useful.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.

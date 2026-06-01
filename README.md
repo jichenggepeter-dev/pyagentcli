@@ -9,7 +9,7 @@ It is not a plain chatbot wrapper. PyAgentCLI provides a local agent runtime aro
 - ReAct / tool-calling Agent Loop
 - Filesystem tools: `list_files`, `read_file`, `write_file`, `edit_file`
 - Shell tool: `run_shell`
-- Search tools: `search_files`, `search_text`, `search_index`
+- Search tools: `search_files`, `search_text`, `search_index`, `search_dependencies`
 - Browser tool: `inspect_page` for local HTML and localhost inspection
 - Safety: path guardrails, dangerous command denial, approval, audit log
 - Plan-and-Execute: preview, approval, resume, retry, step status tracking

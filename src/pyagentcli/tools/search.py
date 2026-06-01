@@ -227,6 +227,71 @@ class SearchIndexTool:
         )
 
 
+class SearchDependenciesTool:
+    name = "search_dependencies"
+    description = "Search the indexed Python import graph by file path or imported module/name."
+    risk_level = RiskLevel.READ
+
+    def schema(self) -> dict[str, Any]:
+        return function_schema(
+            self.name,
+            self.description,
+            {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative Python file path. Returns imports used by this file.",
+                    },
+                    "module": {
+                        "type": "string",
+                        "description": "Module or imported name. Returns files importing it.",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of dependency edges to return. Defaults to 20.",
+                    },
+                },
+            },
+        )
+
+    def run(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
+        raw_path = args.get("path")
+        module = args.get("module")
+        max_results = _coerce_max_results(args.get("max_results"))
+        indexer = CodeIndexer(context.workspace_root)
+
+        try:
+            if isinstance(raw_path, str) and raw_path.strip():
+                path = str(context.safety_policy.resolve_workspace_path(raw_path).relative_to(context.workspace_root))
+                edges = indexer.imports_for(path)[:max_results]
+                mode = "imports_for"
+                query = path
+            elif isinstance(module, str) and module.strip():
+                edges = indexer.imported_by(module.strip())[:max_results]
+                mode = "imported_by"
+                query = module.strip()
+            else:
+                return ToolResult.failure("Provide either path or module.")
+        except FileNotFoundError:
+            return ToolResult.failure("Index not found. Run `pyagent --index` for this workspace first.")
+
+        if not edges:
+            return ToolResult.success(
+                f"No dependency edges found for {query!r}.",
+                mode=mode,
+                query=query,
+                matches=0,
+            )
+
+        return ToolResult.success(
+            "\n".join(edge.format_text() for edge in edges),
+            mode=mode,
+            query=query,
+            matches=len(edges),
+        )
+
+
 def _iter_files(root: Path):
     for path in sorted(root.rglob("*")):
         if not path.is_file():

@@ -280,6 +280,7 @@ def test_default_registry_exposes_search_text_schema() -> None:
     registry = default_registry()
     tool_names = [schema["function"]["name"] for schema in registry.schemas()]
     assert "search_text" in tool_names
+    assert "search_dependencies" in tool_names
 
 
 def test_search_index_reads_sqlite_fts_index(tmp_path: Path) -> None:
@@ -320,6 +321,54 @@ def test_search_index_warns_when_index_is_stale(tmp_path: Path) -> None:
     assert result.ok
     assert "Warning: index may be stale for: src/app.py" in result.content
     assert result.metadata["stale_paths"] == ["src/app.py"]
+
+
+def test_search_dependencies_requires_index(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("search_dependencies", {"path": "src/app.py"}, context)
+
+    assert not result.ok
+    assert "Index not found" in (result.error or "")
+
+
+def test_search_dependencies_finds_imports_for_file(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text(
+        "import os\nfrom helpers import normalize\n",
+        encoding="utf-8",
+    )
+    from pyagentcli.rag.indexer import CodeIndexer
+
+    CodeIndexer(tmp_path).rebuild()
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("search_dependencies", {"path": "src/app.py"}, context)
+
+    assert result.ok
+    assert "src/app.py:1 imports os" in result.content
+    assert "src/app.py:2 imports helpers:normalize" in result.content
+    assert result.metadata["mode"] == "imports_for"
+
+
+def test_search_dependencies_finds_imported_by_module(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("from helpers import normalize\n", encoding="utf-8")
+    (tmp_path / "src" / "other.py").write_text("import helpers\n", encoding="utf-8")
+    from pyagentcli.rag.indexer import CodeIndexer
+
+    CodeIndexer(tmp_path).rebuild()
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("search_dependencies", {"module": "helpers"}, context)
+
+    assert result.ok
+    assert "src/app.py:1 imports helpers:normalize" in result.content
+    assert "src/other.py:1 imports helpers" in result.content
+    assert result.metadata["mode"] == "imported_by"
 
 
 def test_default_registry_exposes_search_index_schema() -> None:
