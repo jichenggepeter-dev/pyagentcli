@@ -14,6 +14,30 @@ def test_injects_file_reference(tmp_path: Path) -> None:
     assert "Hello context" in injected.enriched_goal
 
 
+def test_file_reference_includes_dependency_context_when_index_exists(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text(
+        "from helpers import normalize\n\nvalue = normalize('x')\n",
+        encoding="utf-8",
+    )
+    CodeIndexer(tmp_path).rebuild()
+
+    injected = inject_context_references("Explain @src/app.py", tmp_path)
+
+    assert "Dependency context:" in injected.enriched_goal
+    assert "src/app.py:1 imports helpers:normalize" in injected.enriched_goal
+
+
+def test_file_reference_works_without_dependency_index(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("from helpers import normalize\n", encoding="utf-8")
+
+    injected = inject_context_references("Explain @src/app.py", tmp_path)
+
+    assert "from helpers import normalize" in injected.enriched_goal
+    assert "Dependency context:" not in injected.enriched_goal
+
+
 def test_injects_directory_reference(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "app.py").write_text("print('hi')\n", encoding="utf-8")
@@ -52,6 +76,22 @@ def test_injects_symbol_reference_from_index(tmp_path: Path) -> None:
     assert "### @project_status" in injected.enriched_goal
     assert "#### src/app.py:1-2 function project_status" in injected.enriched_goal
     assert "def project_status()" in injected.enriched_goal
+
+
+def test_symbol_reference_includes_dependency_context(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text(
+        "from helpers import status_value\n\n"
+        "def project_status():\n"
+        "    return status_value()\n",
+        encoding="utf-8",
+    )
+    CodeIndexer(tmp_path).rebuild()
+
+    injected = inject_context_references("Explain @project_status", tmp_path)
+
+    assert "Dependency context:" in injected.enriched_goal
+    assert "src/app.py:1 imports helpers:status_value" in injected.enriched_goal
 
 
 def test_injects_method_symbol_reference_from_index(tmp_path: Path) -> None:

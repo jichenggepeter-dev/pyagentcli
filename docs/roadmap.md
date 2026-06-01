@@ -68,6 +68,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - Python import graph extraction
 - import dependency query API
 - `search_dependencies` read-only dependency tool
+- dependency context injection for `@file` and `@symbol`
 
 ### Memory
 
@@ -129,8 +130,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced RAG
 
-- dependency-aware context injection
 - multi-language symbol chunking
+- richer dependency context such as imported-by edges
 
 ### Advanced Memory
 
@@ -147,8 +148,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced RAG dependency context**
-   Inject dependency graph context for `@file` or symbol references when useful.
+1. **Advanced RAG multi-language symbols**
+   Add symbol-aware chunking for JavaScript/TypeScript or another common project language.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.

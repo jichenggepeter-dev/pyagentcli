@@ -251,6 +251,22 @@ or:
 
 through the `search_dependencies` tool.
 
+## Dependency Context Injection
+
+When the index exists, explicit context references can include a small dependency block:
+
+- `@path/to/file.py` includes imports used by that file.
+- `@symbol` includes imports used by the file containing the symbol hit.
+
+Example:
+
+```text
+Dependency context:
+src/app.py:1 imports helpers:normalize
+```
+
+The dependency block is bounded and best-effort. If the index does not exist, `@file` injection still works normally and PyAgentCLI simply omits dependency context.
+
 ## Embedding Config
 
 Embedding providers can be configured in `pyagent.toml`:
@@ -284,6 +300,6 @@ If the embedding provider is not configured, missing, or fails during indexing/s
 ## Next Steps
 
 1. Add symbol-aware chunking for more languages.
-2. Add dependency-aware context injection.
-3. Add multi-language symbol chunking.
+2. Add multi-language symbol chunking.
+3. Add richer dependency context such as imported-by edges.
 4. Add automatic index refresh as an explicit approved action.

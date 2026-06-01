@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.2f：Advanced RAG Dependency Context
+- Phase 3.2g：Advanced RAG Multi-Language Symbols
 
 ## Roadmap 总览
 
@@ -627,27 +627,27 @@ User Goal
 
 名称：
 
-- Advanced RAG Dependency Context
+- Advanced RAG Multi-Language Symbols
 
 目标：
 
-- 在 `@file` 或 `@symbol` 上下文注入时，补充有限的 dependency graph context。
+- 为 JavaScript/TypeScript 等常见项目语言增加 symbol-aware chunking。
 
 第一小步：
 
-- 为 context injection 增加可选 dependency block。
+- 设计非 Python symbol chunker 的轻量解析策略。
 
 第二小步：
 
-- 控制依赖上下文大小，避免 prompt 膨胀。
+- 支持函数、类、导出函数等基础 symbol。
 
 第三小步：
 
-- 保持没有 index 时的清晰 fallback。
+- 补索引和 `@symbol` 注入测试。
 
 完成标准：
 
 - 当前 FTS/RAG Lite 行为不回退。
-- dependency context 有上限。
-- 未建立 index 时不影响普通 `@file` 注入。
+- Python chunking 不回退。
+- 新语言 chunking 有测试覆盖。
 - 全量测试通过。

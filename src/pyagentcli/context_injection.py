@@ -13,6 +13,7 @@ MAX_FILE_CHARS = 6000
 MAX_DIR_ENTRIES = 80
 MAX_SYMBOL_HITS = 3
 MAX_SYMBOL_CHARS = 9000
+MAX_DEPENDENCY_EDGES = 8
 
 
 @dataclass(frozen=True)
@@ -39,7 +40,7 @@ def inject_context_references(goal: str, workspace_root: Path) -> InjectedContex
             continue
 
         if target.is_file():
-            blocks.append(_format_file_reference(reference, target))
+            blocks.append(_format_file_reference(reference, target, workspace_root))
             used.append(reference)
         elif target.is_dir():
             blocks.append(_format_dir_reference(reference, target, workspace_root))
@@ -74,7 +75,7 @@ def _extract_references(goal: str) -> list[str]:
     return references
 
 
-def _format_file_reference(reference: str, target: Path) -> str:
+def _format_file_reference(reference: str, target: Path, workspace_root: Path) -> str:
     try:
         content = target.read_text(encoding="utf-8")
     except UnicodeDecodeError:
@@ -85,7 +86,11 @@ def _format_file_reference(reference: str, target: Path) -> str:
         content = content[:MAX_FILE_CHARS]
         truncated = "\n... <file context truncated>"
 
-    return f"### @{reference}\n```text\n{content}{truncated}\n```"
+    dependency_context = _format_dependency_context_for_file(target, workspace_root)
+    if dependency_context:
+        dependency_context = f"\n\n{dependency_context}"
+
+    return f"### @{reference}\n```text\n{content}{truncated}\n```{dependency_context}"
 
 
 def _format_dir_reference(reference: str, target: Path, workspace_root: Path) -> str:
@@ -125,7 +130,7 @@ def _format_symbol_reference(reference: str, workspace_root: Path) -> str:
     chunks: list[str] = []
     remaining_chars = MAX_SYMBOL_CHARS
     for hit in result.hits:
-        formatted = _format_symbol_hit(hit)
+        formatted = _format_symbol_hit(hit, workspace_root)
         if len(formatted) > remaining_chars:
             formatted = formatted[:remaining_chars] + "\n... <symbol context truncated>"
         chunks.append(formatted)
@@ -137,8 +142,29 @@ def _format_symbol_reference(reference: str, workspace_root: Path) -> str:
     return f"### @{reference}\n{warning}{body}"
 
 
-def _format_symbol_hit(hit: IndexSearchHit) -> str:
-    return f"#### {hit.label()}\n```text\n{hit.content}\n```"
+def _format_symbol_hit(hit: IndexSearchHit, workspace_root: Path) -> str:
+    dependency_context = _format_dependency_context_for_file(workspace_root / hit.path, workspace_root)
+    if dependency_context:
+        dependency_context = f"\n\n{dependency_context}"
+    return f"#### {hit.label()}\n```text\n{hit.content}\n```{dependency_context}"
+
+
+def _format_dependency_context_for_file(target: Path, workspace_root: Path) -> str:
+    try:
+        relative = str(target.relative_to(workspace_root))
+    except ValueError:
+        return ""
+
+    indexer = CodeIndexer(workspace_root)
+    try:
+        edges = indexer.imports_for(relative)[:MAX_DEPENDENCY_EDGES]
+    except FileNotFoundError:
+        return ""
+    if not edges:
+        return ""
+
+    lines = "\n".join(edge.format_text() for edge in edges)
+    return f"Dependency context:\n```text\n{lines}\n```"
 
 
 def _looks_like_symbol(reference: str) -> bool:
