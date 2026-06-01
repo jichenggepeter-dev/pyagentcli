@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.2：Release and Packaging
+- Phase 3.4：Advanced Multi-Agent
 
 ## Roadmap 总览
 
@@ -614,6 +614,10 @@ User Goal
 - CI 通过。
 - README quick start 可复现。
 
+状态：
+
+- 已完成 v0.1：包元数据测试、`pyagent` 入口 smoke、CI smoke、release checklist。
+
 ## 每次开发的标准交接格式
 
 每完成一个小板块，最终回复或 PR 描述应包含：
@@ -632,28 +636,27 @@ User Goal
 
 名称：
 
-- Release and Packaging
+- Advanced Multi-Agent
 
 目标：
 
-- 让 PyAgentCLI 从本地 demo 进入可安装、可验证、可发布状态。
+- 把 Planner、Executor、Reviewer 从“同一运行时的三个能力”升级成更清晰的角色协作边界。
 
 第一小步：
 
-- 校验 `pyproject.toml` 的包元数据、console script、Python 版本约束和依赖声明。
+- 为 Planner / Executor / Reviewer 增加更明确的输入输出契约和 handoff 记录。
 
 第二小步：
 
-- 增加 clean checkout 安装 smoke test，确认 `pyagent --help`、`--index`、`--eval` 可复现。
+- 让 Reviewer 可以基于执行结果给出 retry / accept / block 决策，并把建议写入 plan。
 
 第三小步：
 
-- 编写 GitHub release checklist，明确 tag、版本号、测试、README quick start 和变更摘要。
+- 为失败 plan 增加 Reviewer 驱动的下一步建议，方便用户决定 resume、retry 或 skip。
 
 完成标准：
 
-- 本地 editable install 可用。
-- CLI entry point 可用。
+- 三个角色的输入输出可审计。
+- plan 中能看到 reviewer handoff 建议。
+- 不自动越权重试，仍需用户审批。
 - 全量测试通过。
-- README quick start 与真实命令一致。
-- release checklist 可直接用于 GitHub 发布。

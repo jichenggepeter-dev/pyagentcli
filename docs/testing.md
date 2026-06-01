@@ -12,6 +12,7 @@ The test suite covers:
 
 - agent loop
 - CLI parsing and workflows
+- package metadata and CLI entry point
 - safety policy
 - filesystem and shell tools
 - RAG chunking and indexing
@@ -29,6 +30,13 @@ If `pytest` is not installed, run these smoke checks:
 PYTHONPATH=src python -m compileall src tests
 PYTHONPATH=src python -m pyagentcli --help
 PYTHONPATH=src python -m pyagentcli --workspace examples/demo_workspace --eval
+```
+
+After editable install, run the console script smoke checks:
+
+```bash
+pyagent --help
+pyagent --workspace examples/demo_workspace --eval
 ```
 
 Expected eval output:

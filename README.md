@@ -48,6 +48,7 @@ The model never mutates the workspace directly. It emits tool calls, and PyAgent
 - [Demo Script](docs/demo_script.md)
 - [Developer Setup](docs/dev_setup.md)
 - [Testing](docs/testing.md)
+- [Release Checklist](docs/release_checklist.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Interview Guide](docs/interview_guide.md)
 - [Resume Bullets](docs/resume_bullets.md)
@@ -66,22 +67,22 @@ The model never mutates the workspace directly. It emits tool calls, and PyAgent
 
 ```bash
 python -m pip install -e ".[dev]"
-PYTHONPATH=src python -m pyagentcli --help
-PYTHONPATH=src python -m pyagentcli "summarize this workspace"
-PYTHONPATH=src python -m pyagentcli --index
-PYTHONPATH=src python -m pyagentcli --plan "fix failing tests"
-PYTHONPATH=src python -m pyagentcli --execute-plan "fix failing tests"
-PYTHONPATH=src python -m pyagentcli --list-plans
-PYTHONPATH=src python -m pyagentcli --show-plan PLAN_ID
-PYTHONPATH=src python -m pyagentcli --resume-plan PLAN_ID
-PYTHONPATH=src python -m pyagentcli --retry-step PLAN_ID STEP_ID
-PYTHONPATH=src python -m pyagentcli --set-step-status PLAN_ID STEP_ID STATUS
-PYTHONPATH=src python -m pyagentcli --skip-step PLAN_ID STEP_ID
-PYTHONPATH=src python -m pyagentcli --remember "Prefer edit_file for small edits."
-PYTHONPATH=src python -m pyagentcli --memory
-PYTHONPATH=src python -m pyagentcli --eval
-PYTHONPATH=src python -m pyagentcli --list-skills
-PYTHONPATH=src python -m pyagentcli
+pyagent --help
+pyagent "summarize this workspace"
+pyagent --index
+pyagent --plan "fix failing tests"
+pyagent --execute-plan "fix failing tests"
+pyagent --list-plans
+pyagent --show-plan PLAN_ID
+pyagent --resume-plan PLAN_ID
+pyagent --retry-step PLAN_ID STEP_ID
+pyagent --set-step-status PLAN_ID STEP_ID STATUS
+pyagent --skip-step PLAN_ID STEP_ID
+pyagent --remember "Prefer edit_file for small edits."
+pyagent --memory
+pyagent --eval
+pyagent --list-skills
+pyagent
 ```
 
 Run the local demo:

@@ -112,6 +112,13 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - task success rate, tool-call accuracy, and safety violation metrics
 - RAG retrieval evals for Python symbols, TypeScript symbols, and dependency context
 
+### Release and Packaging v0.1
+
+- `pyagent` console script declared in `pyproject.toml`
+- package metadata smoke tests
+- CI CLI smoke checks after editable install
+- release checklist for tag, docs, tests, and known limitations
+
 ### MCP v0.1
 
 - minimal stdio MCP client
@@ -159,14 +166,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Release and Packaging**
-   Add install smoke tests, CLI metadata checks, and a GitHub release checklist.
-
-2. **Advanced Multi-Agent**
+1. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.
 
-3. **Advanced Browser tools**
+2. **Advanced Browser tools**
    Add Playwright-backed screenshots, DOM inspection, console logs, and local UI interaction.
 
-4. **Model-backed Eval v0.3**
+3. **Model-backed Eval v0.3**
    Replace simulated tool calls with captured Agent runs and expected diff scoring.
