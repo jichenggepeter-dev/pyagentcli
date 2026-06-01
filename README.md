@@ -41,6 +41,7 @@ The model never mutates the workspace directly. It emits tool calls, and PyAgent
 ## Documentation
 
 - [Roadmap](docs/roadmap.md)
+- [Chinese Execution Plan](docs/execution_plan_zh.md)
 - [Demo Script](docs/demo_script.md)
 - [Developer Setup](docs/dev_setup.md)
 - [Testing](docs/testing.md)

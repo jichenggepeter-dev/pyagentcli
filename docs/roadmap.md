@@ -4,6 +4,8 @@ This roadmap captures the current closeout state of PyAgentCLI.
 
 PyAgentCLI is a local Python AI Coding Agent CLI inspired by Claude Code, Codex CLI, and the PaiCLI Agent learning path. The project now has a working core loop and several production-shaped subsystems.
 
+For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execution_plan_zh.md).
+
 ## Completed Core
 
 ### Agent Loop
