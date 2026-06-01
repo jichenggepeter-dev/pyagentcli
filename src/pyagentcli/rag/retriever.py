@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pyagentcli.rag.embeddings import EmbeddingProvider, NullEmbeddingProvider
 from pyagentcli.rag.indexer import CodeIndexer, IndexSearchHit
+from pyagentcli.rag.vector_store import SQLiteVectorStore, VectorSearchHit
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,20 @@ class RetrievalHit:
         return cls(
             source="fts",
             score=score,
+            path=hit.path,
+            start_line=hit.start_line,
+            end_line=hit.end_line,
+            snippet=hit.snippet,
+            symbol_name=hit.symbol_name,
+            kind=hit.kind,
+            content=hit.content,
+        )
+
+    @classmethod
+    def from_vector_hit(cls, hit: VectorSearchHit) -> "RetrievalHit":
+        return cls(
+            source="vector",
+            score=hit.score,
             path=hit.path,
             start_line=hit.start_line,
             end_line=hit.end_line,
@@ -82,7 +97,7 @@ class HybridRetriever:
             RetrievalHit.from_index_hit(hit, score=1.0 / (index + 1))
             for index, hit in enumerate(fts_result.hits)
         ]
-        vector_hits = self._vector_hits(query=query)
+        vector_hits = self._vector_hits(query=query, max_results=max_results)
         merged = _dedupe_hits([*fts_hits, *vector_hits])[:max_results]
         return HybridSearchResult(
             query=query,
@@ -93,13 +108,14 @@ class HybridRetriever:
             vector_enabled=self.embedding_provider.available,
         )
 
-    def _vector_hits(self, *, query: str) -> list[RetrievalHit]:
+    def _vector_hits(self, *, query: str, max_results: int) -> list[RetrievalHit]:
         if not self.embedding_provider.available:
             return []
-        # The provider call is intentionally wired before vector storage exists.
-        # This proves missing embeddings are optional while keeping the future integration point executable.
-        self.embedding_provider.embed_query(query)
-        return []
+        store = SQLiteVectorStore(self.indexer.database_path)
+        return [
+            RetrievalHit.from_vector_hit(hit)
+            for hit in store.search(query, provider=self.embedding_provider, max_results=max_results)
+        ]
 
 
 def _dedupe_hits(hits: list[RetrievalHit]) -> list[RetrievalHit]:

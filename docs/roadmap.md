@@ -61,6 +61,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - stale-index warning
 - hybrid retrieval interface
 - optional embedding provider interface with disabled-by-default fallback
+- optional SQLite vector store for chunk embeddings
+- hybrid FTS/vector result deduping
 
 ### Memory
 
@@ -122,8 +124,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced RAG
 
-- real embedding provider integration
-- vector store persistence
+- real external embedding provider integration
 - import graph or dependency graph
 - multi-language symbol chunking
 
@@ -142,8 +143,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced RAG vector store**
-   Add a real embedding provider and persist vector hits alongside FTS chunks.
+1. **Advanced RAG external embeddings**
+   Add a real embedding provider and configuration while preserving local fallback.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.

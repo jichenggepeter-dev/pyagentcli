@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.2b：Advanced RAG Vector Store
+- Phase 3.2c：Advanced RAG External Embeddings
 
 ## Roadmap 总览
 
@@ -627,28 +627,28 @@ User Goal
 
 名称：
 
-- Advanced RAG Vector Store
+- Advanced RAG External Embeddings
 
 目标：
 
-- 在现有 HybridRetriever 后面接入真实 vector store 持久化，但保持 FTS fallback。
+- 接入真实 embedding provider 配置，同时保持本地 fallback 和 FTS 可用。
 
 第一小步：
 
-- 设计 vector table schema，和现有 chunks 表用 chunk id 或 path/line 对齐。
+- 设计 embedding provider 配置：provider、model、base_url、api_key env name。
 
 第二小步：
 
-- 在 `pyagent --index` 时可选生成 embeddings。
+- 在 index 命令里按配置选择 Null/Hash/External provider。
 
 第三小步：
 
-- HybridRetriever 合并 FTS hits 和 vector hits，并去重。
+- 加入失败降级：embedding 调用失败时 FTS 仍可完成。
 
 完成标准：
 
 - 当前 FTS/RAG Lite 行为不回退。
 - embedding 未配置时系统不报错。
-- vector store 缺失时系统不报错。
+- 外部 embedding 失败时系统不报错。
 - retrieval result 标明来源。
 - 全量测试通过。

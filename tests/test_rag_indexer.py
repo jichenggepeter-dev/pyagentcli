@@ -14,6 +14,7 @@ def test_code_indexer_rebuilds_sqlite_fts_index(tmp_path: Path) -> None:
 
     assert result.indexed_files == 1
     assert result.indexed_chunks == 1
+    assert result.indexed_vectors == 0
     assert result.database_path.exists()
     with sqlite3.connect(result.database_path) as connection:
         rows = connection.execute(
@@ -109,3 +110,17 @@ def test_code_indexer_reports_new_files_as_stale(tmp_path: Path) -> None:
     (tmp_path / "src" / "new_feature.py").write_text("def new_feature():\n    pass\n", encoding="utf-8")
 
     assert indexer.search("project_status").stale_paths == ["src/new_feature.py"]
+
+
+def test_code_indexer_can_persist_chunk_vectors(tmp_path: Path) -> None:
+    from pyagentcli.rag.embeddings import HashEmbeddingProvider
+
+    (tmp_path / "README.md").write_text("Project status READY\n", encoding="utf-8")
+
+    result = CodeIndexer(tmp_path, embedding_provider=HashEmbeddingProvider(dimensions=8)).rebuild()
+
+    assert result.indexed_vectors == result.indexed_chunks
+    with sqlite3.connect(result.database_path) as connection:
+        rows = connection.execute("SELECT path, provider, dimensions FROM chunk_vectors").fetchall()
+
+    assert rows == [("README.md", "hash", 8)]

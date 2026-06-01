@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from pyagentcli.rag.chunker import CodeChunk, chunk_text
+from pyagentcli.rag.embeddings import EmbeddingProvider, NullEmbeddingProvider
+from pyagentcli.rag.vector_store import SQLiteVectorStore
 
 
 IGNORED_DIRS = {".git", ".pyagent", ".pytest_cache", "__pycache__", ".venv", "node_modules", "dist", "build"}
@@ -17,12 +19,14 @@ MAX_INDEX_CHARS = 200_000
 class IndexResult:
     indexed_files: int
     indexed_chunks: int
+    indexed_vectors: int
     skipped_files: int
     database_path: Path
 
     def format_text(self) -> str:
         return (
             f"Indexed {self.indexed_files} files into {self.indexed_chunks} chunks; "
+            f"{self.indexed_vectors} vectors; "
             f"skipped {self.skipped_files} files.\n"
             f"Index: {self.database_path}"
         )
@@ -68,22 +72,27 @@ class IndexSearchResult:
 
 
 class CodeIndexer:
-    def __init__(self, workspace_root: Path) -> None:
+    def __init__(self, workspace_root: Path, *, embedding_provider: EmbeddingProvider | None = None) -> None:
         self.workspace_root = workspace_root.resolve()
         self.database_path = self.workspace_root / ".pyagent" / "index.sqlite"
+        self.embedding_provider = embedding_provider or NullEmbeddingProvider()
 
     def rebuild(self) -> IndexResult:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         indexed = 0
         indexed_chunks = 0
+        indexed_vectors = 0
         skipped = 0
         with sqlite3.connect(self.database_path) as connection:
             _drop_rebuildable_tables(connection)
             self._init_schema(connection)
+            vector_store = SQLiteVectorStore(self.database_path)
+            vector_store.init_schema(connection)
             connection.execute("DELETE FROM files")
             connection.execute("DELETE FROM files_fts")
             connection.execute("DELETE FROM chunks")
             connection.execute("DELETE FROM chunks_fts")
+            connection.execute("DELETE FROM chunk_vectors")
 
             for path in _iter_indexable_files(self.workspace_root):
                 try:
@@ -107,12 +116,14 @@ class CodeIndexer:
                 )
                 chunks = chunk_text(path=relative_path, content=content)
                 _insert_chunks(connection, chunks)
+                indexed_vectors += vector_store.insert_chunks(connection, chunks, provider=self.embedding_provider)
                 indexed_chunks += len(chunks)
                 indexed += 1
 
         return IndexResult(
             indexed_files=indexed,
             indexed_chunks=indexed_chunks,
+            indexed_vectors=indexed_vectors,
             skipped_files=skipped,
             database_path=self.database_path,
         )
@@ -235,6 +246,7 @@ class CodeIndexer:
             USING fts5(path UNINDEXED, start_line UNINDEXED, end_line UNINDEXED, symbol_name, kind, content)
             """
         )
+        SQLiteVectorStore(Path()).init_schema(connection)
 
 
 def _iter_indexable_files(root: Path):
@@ -265,6 +277,7 @@ def _drop_rebuildable_tables(connection: sqlite3.Connection) -> None:
     connection.execute("DROP TABLE IF EXISTS files_fts")
     connection.execute("DROP TABLE IF EXISTS chunks_fts")
     connection.execute("DROP TABLE IF EXISTS chunks")
+    connection.execute("DROP TABLE IF EXISTS chunk_vectors")
 
 
 def _find_stale_paths(connection: sqlite3.Connection, workspace_root: Path) -> list[str]:

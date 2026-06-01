@@ -18,6 +18,8 @@ Advanced RAG v0.1 adds:
 - `HybridRetriever`
 - `HybridSearchResult`
 - `RetrievalHit` with source and score fields
+- SQLite `chunk_vectors` table for optional vector persistence
+- vector + FTS deduping in `HybridRetriever`
 
 When no embedding provider is configured, vector retrieval is disabled and `search_index` behaves like the previous SQLite FTS search.
 
@@ -167,15 +169,38 @@ The retrieval layer now has this shape:
 search_index tool
   -> HybridRetriever
     -> SQLite FTS hits
-    -> optional vector hits
+    -> optional SQLite vector hits
     -> deduped RetrievalHit list
 ```
 
 This keeps the current local behavior stable while making room for embeddings, vector stores, reranking, and import-graph signals.
 
+## Vector Store
+
+Vector persistence is optional.
+
+The default `pyagent --index` path does not write embeddings because `NullEmbeddingProvider` is used. When a real or test provider is passed to `CodeIndexer`, vectors are written into:
+
+```text
+chunk_vectors
+```
+
+Each row stores:
+
+- path
+- start and end line
+- symbol name
+- kind
+- content
+- provider name
+- dimensions
+- embedding JSON
+
+`HybridRetriever` can then query the vector table and merge vector hits with FTS hits.
+
 ## Next Steps
 
 1. Add symbol-aware chunking for more languages.
-2. Add a real embedding provider and vector store.
+2. Add a real external embedding provider.
 3. Add import graph or dependency graph signals.
 4. Add automatic index refresh as an explicit approved action.

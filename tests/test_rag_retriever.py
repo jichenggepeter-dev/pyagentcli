@@ -21,8 +21,8 @@ def test_hybrid_retriever_uses_fts_when_embeddings_are_disabled(tmp_path: Path) 
 
 def test_hybrid_retriever_calls_available_embedding_provider(tmp_path: Path) -> None:
     (tmp_path / "README.md").write_text("Project status READY\n", encoding="utf-8")
-    CodeIndexer(tmp_path).rebuild()
     provider = HashEmbeddingProvider(dimensions=8)
+    CodeIndexer(tmp_path, embedding_provider=provider).rebuild()
 
     result = HybridRetriever(tmp_path, embedding_provider=provider).search("READY")
 
@@ -30,6 +30,18 @@ def test_hybrid_retriever_calls_available_embedding_provider(tmp_path: Path) -> 
     assert result.embedding_provider == "hash"
     assert len(provider.embed_query("READY")) == 8
     assert result.hits
+
+
+def test_hybrid_retriever_can_return_vector_hits_when_fts_has_no_match(tmp_path: Path) -> None:
+    (tmp_path / "README.md").write_text("Project status READY\n", encoding="utf-8")
+    provider = HashEmbeddingProvider(dimensions=8)
+    CodeIndexer(tmp_path, embedding_provider=provider).rebuild()
+
+    result = HybridRetriever(tmp_path, embedding_provider=provider).search("unrelated query")
+
+    assert result.hits
+    assert result.hits[0].source == "vector"
+    assert result.hits[0].path == "README.md"
 
 
 def test_hash_embedding_provider_is_deterministic() -> None:
