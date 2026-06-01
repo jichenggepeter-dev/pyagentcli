@@ -14,6 +14,15 @@ class MCPServerConfig:
 
 
 @dataclass(frozen=True)
+class EmbeddingConfig:
+    provider: str = "none"
+    model: str = "text-embedding-3-small"
+    base_url: str = "https://api.openai.com/v1"
+    api_key_env: str = "OPENAI_API_KEY"
+    dimensions: int = 16
+
+
+@dataclass(frozen=True)
 class AppConfig:
     workspace_root: Path
     model: str
@@ -22,6 +31,7 @@ class AppConfig:
     max_steps: int
     interactive: bool = True
     mcp_servers: tuple[MCPServerConfig, ...] = ()
+    embedding: EmbeddingConfig = EmbeddingConfig()
 
 
 def load_config(workspace: str | None = None, *, interactive: bool = True) -> AppConfig:
@@ -43,6 +53,7 @@ def load_config(workspace: str | None = None, *, interactive: bool = True) -> Ap
         max_steps=max_steps,
         interactive=interactive,
         mcp_servers=load_project_mcp_servers(workspace_root),
+        embedding=load_project_embedding_config(workspace_root),
     )
 
 
@@ -68,11 +79,7 @@ def _normalize_env_value(value: str) -> str:
 
 
 def load_project_mcp_servers(workspace_root: Path) -> tuple[MCPServerConfig, ...]:
-    config_path = workspace_root / "pyagent.toml"
-    if not config_path.exists():
-        return ()
-
-    data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    data = _load_project_toml(workspace_root)
     servers = ((data.get("mcp") or {}).get("servers") or {})
     if not isinstance(servers, dict):
         return ()
@@ -89,3 +96,35 @@ def load_project_mcp_servers(workspace_root: Path) -> tuple[MCPServerConfig, ...
             continue
         parsed.append(MCPServerConfig(name=str(name), command=tuple(command), enabled=enabled))
     return tuple(parsed)
+
+
+def load_project_embedding_config(workspace_root: Path) -> EmbeddingConfig:
+    data = _load_project_toml(workspace_root)
+    raw = ((data.get("rag") or {}).get("embeddings") or {})
+    if not isinstance(raw, dict):
+        return EmbeddingConfig()
+
+    dimensions_raw = raw.get("dimensions", 16)
+    try:
+        dimensions = int(dimensions_raw)
+    except (TypeError, ValueError):
+        dimensions = 16
+
+    return EmbeddingConfig(
+        provider=str(raw.get("provider") or "none"),
+        model=str(raw.get("model") or "text-embedding-3-small"),
+        base_url=str(raw.get("base_url") or "https://api.openai.com/v1").rstrip("/"),
+        api_key_env=str(raw.get("api_key_env") or "OPENAI_API_KEY"),
+        dimensions=max(4, dimensions),
+    )
+
+
+def _load_project_toml(workspace_root: Path) -> dict:
+    config_path = workspace_root / "pyagent.toml"
+    if not config_path.exists():
+        return {}
+    try:
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}

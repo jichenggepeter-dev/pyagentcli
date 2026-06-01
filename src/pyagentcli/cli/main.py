@@ -16,6 +16,7 @@ from pyagentcli.llm.model_config import build_llm_client
 from pyagentcli.llm.openai_compatible import LocalFallbackClient
 from pyagentcli.memory.project_memory import ProjectMemory
 from pyagentcli.mcp.adapter import register_configured_mcp_tools
+from pyagentcli.rag.embeddings import build_embedding_provider
 from pyagentcli.rag.indexer import CodeIndexer
 from pyagentcli.safety.approval import ApprovalHandler
 from pyagentcli.safety.audit_log import AuditLogger
@@ -244,7 +245,8 @@ def check_model(*, workspace: str | None = None) -> None:
 
 def index_workspace(*, workspace: str | None = None) -> str:
     config = load_config(workspace=workspace, interactive=False)
-    return CodeIndexer(config.workspace_root).rebuild().format_text()
+    embedding_provider = build_embedding_provider(config.embedding)
+    return CodeIndexer(config.workspace_root, embedding_provider=embedding_provider).rebuild().format_text()
 
 
 def show_memory(*, workspace: str | None = None) -> str:

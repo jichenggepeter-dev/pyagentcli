@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.2c：Advanced RAG External Embeddings
+- Phase 3.2d：Advanced RAG Import Graph
 
 ## Roadmap 总览
 
@@ -627,28 +627,27 @@ User Goal
 
 名称：
 
-- Advanced RAG External Embeddings
+- Advanced RAG Import Graph
 
 目标：
 
-- 接入真实 embedding provider 配置，同时保持本地 fallback 和 FTS 可用。
+- 加入 Python import/dependency graph 信号，让检索能回答“哪些文件互相依赖”。
 
 第一小步：
 
-- 设计 embedding provider 配置：provider、model、base_url、api_key env name。
+- 在索引阶段提取 Python import 关系，写入 SQLite。
 
 第二小步：
 
-- 在 index 命令里按配置选择 Null/Hash/External provider。
+- 增加 dependency query 方法，比如查某文件 imports / imported_by。
 
 第三小步：
 
-- 加入失败降级：embedding 调用失败时 FTS 仍可完成。
+- 让 HybridRetriever 或新工具能返回 dependency context。
 
 完成标准：
 
 - 当前 FTS/RAG Lite 行为不回退。
-- embedding 未配置时系统不报错。
-- 外部 embedding 失败时系统不报错。
-- retrieval result 标明来源。
+- 非 Python 文件不受影响。
+- import graph 可解释。
 - 全量测试通过。

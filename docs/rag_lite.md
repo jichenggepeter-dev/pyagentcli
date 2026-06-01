@@ -198,9 +198,39 @@ Each row stores:
 
 `HybridRetriever` can then query the vector table and merge vector hits with FTS hits.
 
+## Embedding Config
+
+Embedding providers can be configured in `pyagent.toml`:
+
+```toml
+[rag.embeddings]
+provider = "hash"
+dimensions = 16
+```
+
+Supported providers:
+
+- `none`: default; no vector indexing.
+- `hash`: deterministic local test provider.
+- `openai-compatible`: calls an OpenAI-compatible `/embeddings` endpoint.
+
+OpenAI-compatible example:
+
+```toml
+[rag.embeddings]
+provider = "openai-compatible"
+model = "text-embedding-3-small"
+base_url = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+```
+
+The API key is read from the named environment variable. Do not put secrets directly in `pyagent.toml`.
+
+If the embedding provider is not configured, missing, or fails during indexing/search, PyAgentCLI falls back to deterministic FTS behavior.
+
 ## Next Steps
 
 1. Add symbol-aware chunking for more languages.
-2. Add a real external embedding provider.
-3. Add import graph or dependency graph signals.
+2. Add import graph or dependency graph signals.
+3. Add multi-language symbol chunking.
 4. Add automatic index refresh as an explicit approved action.

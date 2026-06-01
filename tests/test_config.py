@@ -43,3 +43,26 @@ enabled = false
     assert config.mcp_servers[0].command == ("python", "docs_server.py")
     assert config.mcp_servers[0].enabled is True
     assert config.mcp_servers[1].enabled is False
+
+
+def test_load_config_reads_embedding_config(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyagent.toml").write_text(
+        """
+[rag.embeddings]
+provider = "openai-compatible"
+model = "text-embedding-3-small"
+base_url = "https://example.test/v1"
+api_key_env = "PYAGENT_EMBEDDING_API_KEY"
+dimensions = 24
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(interactive=False)
+
+    assert config.embedding.provider == "openai-compatible"
+    assert config.embedding.model == "text-embedding-3-small"
+    assert config.embedding.base_url == "https://example.test/v1"
+    assert config.embedding.api_key_env == "PYAGENT_EMBEDDING_API_KEY"
+    assert config.embedding.dimensions == 24

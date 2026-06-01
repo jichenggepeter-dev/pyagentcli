@@ -56,7 +56,10 @@ class SQLiteVectorStore:
 
         inserted = 0
         for chunk in chunks:
-            embedding = provider.embed_query(chunk.content)
+            try:
+                embedding = provider.embed_query(chunk.content)
+            except Exception:  # noqa: BLE001 - embedding failures should not break deterministic FTS indexing.
+                return inserted
             connection.execute(
                 """
                 INSERT INTO chunk_vectors(
@@ -89,7 +92,10 @@ class SQLiteVectorStore:
         if not provider.available or not self.database_path.exists():
             return []
 
-        query_embedding = provider.embed_query(query)
+        try:
+            query_embedding = provider.embed_query(query)
+        except Exception:  # noqa: BLE001 - vector search should fall back to FTS on provider failures.
+            return []
         with sqlite3.connect(self.database_path) as connection:
             self.init_schema(connection)
             rows = connection.execute(

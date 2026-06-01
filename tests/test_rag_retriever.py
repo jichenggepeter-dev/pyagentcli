@@ -49,3 +49,23 @@ def test_hash_embedding_provider_is_deterministic() -> None:
 
     assert provider.embed_query("same") == provider.embed_query("same")
     assert provider.embed_query("same") != provider.embed_query("different")
+
+
+def test_vector_search_falls_back_when_embedding_provider_fails(tmp_path: Path) -> None:
+    class BrokenProvider:
+        name = "broken"
+
+        @property
+        def available(self) -> bool:
+            return True
+
+        def embed_query(self, text: str) -> list[float]:
+            raise RuntimeError("embedding service down")
+
+    (tmp_path / "README.md").write_text("Project status READY\n", encoding="utf-8")
+    CodeIndexer(tmp_path, embedding_provider=BrokenProvider()).rebuild()
+
+    result = HybridRetriever(tmp_path, embedding_provider=BrokenProvider()).search("READY")
+
+    assert result.hits
+    assert result.hits[0].source == "fts"

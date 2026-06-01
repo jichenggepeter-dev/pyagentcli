@@ -71,6 +71,24 @@ def test_execute_planned_task_warns_when_index_is_stale(tmp_path, monkeypatch) -
     assert "Run `pyagent --index`" in result
 
 
+def test_index_workspace_uses_hash_embedding_config(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    (tmp_path / "README.md").write_text("Project status READY\n", encoding="utf-8")
+    (tmp_path / "pyagent.toml").write_text(
+        """
+[rag.embeddings]
+provider = "hash"
+dimensions = 8
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = index_workspace(workspace=str(tmp_path))
+
+    assert "vectors" in result
+    assert "0 vectors" not in result
+
+
 def test_plan_task_persists_and_show_plan_loads_it(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 

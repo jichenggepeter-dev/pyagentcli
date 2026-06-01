@@ -63,6 +63,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - optional embedding provider interface with disabled-by-default fallback
 - optional SQLite vector store for chunk embeddings
 - hybrid FTS/vector result deduping
+- configurable hash and OpenAI-compatible embedding providers
+- embedding failure fallback to FTS
 
 ### Memory
 
@@ -124,7 +126,6 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced RAG
 
-- real external embedding provider integration
 - import graph or dependency graph
 - multi-language symbol chunking
 
@@ -143,8 +144,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced RAG external embeddings**
-   Add a real embedding provider and configuration while preserving local fallback.
+1. **Advanced RAG import graph**
+   Add Python import/dependency graph signals to improve code retrieval.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.
