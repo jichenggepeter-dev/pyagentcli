@@ -3,7 +3,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from pyagentcli.mcp.client import MCPClient, MCPToolSpec
+from pathlib import Path
+
+from pyagentcli.config import MCPServerConfig
+from pyagentcli.mcp.client import MCPClient, MCPToolSpec, StdioMCPTransport
 from pyagentcli.tools.base import RiskLevel, ToolContext, ToolResult, function_schema
 from pyagentcli.tools.registry import ToolRegistry
 
@@ -38,6 +41,25 @@ def register_mcp_tools(registry: ToolRegistry, *, server_name: str, client: MCPC
         registry.register(adapter)
         names.append(adapter.name)
     return names
+
+
+def register_configured_mcp_tools(
+    registry: ToolRegistry,
+    *,
+    workspace_root: Path,
+    servers: tuple[MCPServerConfig, ...],
+) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {"registered": [], "errors": []}
+    for server in servers:
+        if not server.enabled:
+            continue
+        client = MCPClient(StdioMCPTransport(list(server.command), cwd=workspace_root))
+        try:
+            result["registered"].extend(register_mcp_tools(registry, server_name=server.name, client=client))
+        except Exception as exc:  # noqa: BLE001 - one bad MCP server should not break local tools.
+            client.close()
+            result["errors"].append(f"{server.name}: {exc}")
+    return result
 
 
 def _classify_risk(spec: MCPToolSpec) -> RiskLevel:

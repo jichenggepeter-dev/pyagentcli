@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.2：MCP 配置和 CLI 集成
+- Phase 2.3：Browser v0.1
 
 ## Roadmap 总览
 
@@ -352,6 +352,10 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 ### 2.2 MCP Config 和 CLI 集成
 
+状态：
+
+- 已完成。
+
 目标：
 
 - 让用户通过项目配置声明 MCP server。
@@ -609,27 +613,27 @@ User Goal
 
 名称：
 
-- MCP Config 和 CLI 集成
+- Browser v0.1
 
 目标：
 
-- 从配置文件加载 MCP server，并在 Agent 启动时注册 read-only MCP tools。
+- 让 PyAgentCLI 具备本地浏览器检查能力，用于验证 localhost 或 file 页面。
 
 第一小步：
 
-- 设计配置结构并补解析测试。
+- 设计 Browser 工具 schema 和安全策略。
 
 第二小步：
 
-- 在 `build_agent()` 中加载 MCP 配置并注册工具。
+- 实现最小页面检查能力：打开本地 URL，返回 title、url、文本快照。
 
 第三小步：
 
-- 补一个 fake stdio server 或 fake client 测试，验证 tools schema 出现在 agent registry。
+- 补本地 HTML fixture 测试，验证工具输出和非本地 URL 拒绝策略。
 
 完成标准：
 
-- 默认无配置时所有旧测试通过。
-- 有配置时 MCP 工具注册成功。
-- 失败 server 不让 CLI 崩溃，错误可解释。
+- 默认不影响现有本地工具。
+- 本地 URL 可检查。
+- 外部网络 URL 默认拒绝或审批。
 - 全量测试通过。

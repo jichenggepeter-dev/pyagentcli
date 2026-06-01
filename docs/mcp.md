@@ -10,6 +10,8 @@ This first slice is intentionally small:
 - `tools/list`
 - `tools/call`
 - adapter from MCP tool specs into PyAgentCLI `ToolRegistry`
+- project-level `pyagent.toml` MCP server config
+- automatic MCP tool registration during Agent startup
 - risk classification from MCP annotations
 - audit and approval reuse through the existing tool execution path
 
@@ -55,16 +57,29 @@ For example, a remote MCP tool named `search_docs` from server `docs` becomes:
 mcp_docs_search_docs
 ```
 
+## Project Config
+
+Add `pyagent.toml` to the workspace root:
+
+```toml
+[mcp.servers.docs]
+command = ["python", "scripts/docs_mcp_server.py"]
+enabled = true
+```
+
+When `build_agent()` starts, PyAgentCLI reads this file, starts enabled stdio MCP servers, calls `tools/list`, and registers their tools in the local `ToolRegistry`.
+
+If one MCP server fails to start or list tools, PyAgentCLI skips that server and keeps the built-in local tools available. This keeps one broken extension from disabling the whole coding agent.
+
 ## Non-Goals
 
 MCP v0.1 does not yet include:
 
-- CLI config loading for MCP servers
 - HTTP/SSE or streamable HTTP transports
 - resources
 - prompts
 - sampling
 - OAuth or credential handling
-- automatic long-running server lifecycle management beyond stdio process start/close
+- advanced long-running server lifecycle management beyond stdio process start/close
 
 These belong in later Phase 2 slices.

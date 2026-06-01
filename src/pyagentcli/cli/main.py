@@ -15,6 +15,7 @@ from pyagentcli.llm.base import Message
 from pyagentcli.llm.model_config import build_llm_client
 from pyagentcli.llm.openai_compatible import LocalFallbackClient
 from pyagentcli.memory.project_memory import ProjectMemory
+from pyagentcli.mcp.adapter import register_configured_mcp_tools
 from pyagentcli.rag.indexer import CodeIndexer
 from pyagentcli.safety.approval import ApprovalHandler
 from pyagentcli.safety.audit_log import AuditLogger
@@ -29,6 +30,7 @@ def build_agent(*, workspace: str | None = None, interactive: bool = True) -> Ag
     approval_handler = ApprovalHandler(interactive=config.interactive)
     audit_logger = AuditLogger(config.workspace_root)
     tools = default_registry()
+    register_configured_mcp_tools(tools, workspace_root=config.workspace_root, servers=config.mcp_servers)
     llm = build_llm_client(config)
 
     def context_factory(*, goal: str, step: int) -> ToolContext:
@@ -217,6 +219,7 @@ def main(argv: list[str] | None = None) -> None:
 def check_model(*, workspace: str | None = None) -> None:
     config = load_config(workspace=workspace, interactive=False)
     tools = default_registry()
+    register_configured_mcp_tools(tools, workspace_root=config.workspace_root, servers=config.mcp_servers)
     llm = build_llm_client(config)
     if isinstance(llm, LocalFallbackClient):
         print("No OPENAI_API_KEY configured. Local fallback is active; real tool calling was not checked.")

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from typing import Any
 
 from pyagentcli.mcp.adapter import MCPToolAdapter, register_mcp_tools
+from pyagentcli.cli.main import build_agent
 from pyagentcli.mcp.client import MCPClient, MCPToolSpec
 from pyagentcli.safety.approval import ApprovalResult
 from pyagentcli.safety.audit_log import AuditLogger
@@ -147,3 +149,72 @@ def test_mcp_non_read_tool_is_denied_by_default_policy(tmp_path: Path) -> None:
     assert adapter.risk_level == RiskLevel.NETWORK
     assert not result.ok
     assert "disabled" in (result.error or "")
+
+
+def test_build_agent_registers_configured_mcp_tools(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    server = tmp_path / "fake_mcp_server.py"
+    server.write_text(
+        """
+import json
+import sys
+
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "notifications/initialized":
+        continue
+    if method == "initialize":
+        result = {
+            "protocolVersion": "2025-11-25",
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": {"name": "fake", "version": "1.0.0"},
+        }
+    elif method == "tools/list":
+        result = {
+            "tools": [
+                {
+                    "name": "echo",
+                    "description": "Echo text.",
+                    "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}},
+                    "annotations": {"readOnlyHint": True},
+                }
+            ]
+        }
+    else:
+        result = {"content": [{"type": "text", "text": "ok"}], "isError": False}
+    print(json.dumps({"jsonrpc": "2.0", "id": request.get("id"), "result": result}), flush=True)
+""".strip(),
+        encoding="utf-8",
+    )
+    (tmp_path / "pyagent.toml").write_text(
+        f"""
+[mcp.servers.docs]
+command = [{sys.executable!r}, "fake_mcp_server.py"]
+enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    agent = build_agent(workspace=str(tmp_path), interactive=False)
+    tool_names = [schema["function"]["name"] for schema in agent.tools.schemas()]
+
+    assert "mcp_docs_echo" in tool_names
+
+
+def test_build_agent_ignores_failed_mcp_server(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    (tmp_path / "pyagent.toml").write_text(
+        """
+[mcp.servers.bad]
+command = ["python", "missing_server.py"]
+enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    agent = build_agent(workspace=str(tmp_path), interactive=False)
+    tool_names = [schema["function"]["name"] for schema in agent.tools.schemas()]
+
+    assert "list_files" in tool_names
+    assert all(not name.startswith("mcp_bad_") for name in tool_names)

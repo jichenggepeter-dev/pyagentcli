@@ -86,6 +86,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - minimal stdio MCP client
 - JSON-RPC initialize/list/call flow
 - MCP tool adapter for the existing `ToolRegistry`
+- project-level `pyagent.toml` MCP server config
+- automatic MCP tool registration during Agent startup
 - read-only MCP tool support via `readOnlyHint`
 - non-read MCP tools classified as `NETWORK` or `CRITICAL` and denied by default policy
 
@@ -132,14 +134,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **MCP config and CLI integration**
-   Load local MCP server definitions from project config and register read-only MCP tools in agent runs.
-
-2. **Browser v0.1**
+1. **Browser v0.1**
    Add Playwright tools for local UI inspection and verification.
 
-3. **Model-backed Eval v0.2**
+2. **Model-backed Eval v0.2**
    Add fixture workspaces and expected outcomes for real coding tasks.
 
-4. **Advanced Multi-Agent**
+3. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate agent roles with explicit contracts.

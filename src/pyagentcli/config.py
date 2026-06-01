@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 import os
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass(frozen=True)
+class MCPServerConfig:
+    name: str
+    command: tuple[str, ...]
+    enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -13,6 +21,7 @@ class AppConfig:
     base_url: str
     max_steps: int
     interactive: bool = True
+    mcp_servers: tuple[MCPServerConfig, ...] = ()
 
 
 def load_config(workspace: str | None = None, *, interactive: bool = True) -> AppConfig:
@@ -33,6 +42,7 @@ def load_config(workspace: str | None = None, *, interactive: bool = True) -> Ap
         base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/"),
         max_steps=max_steps,
         interactive=interactive,
+        mcp_servers=load_project_mcp_servers(workspace_root),
     )
 
 
@@ -55,3 +65,27 @@ def _normalize_env_value(value: str) -> str:
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
         return value[1:-1]
     return value
+
+
+def load_project_mcp_servers(workspace_root: Path) -> tuple[MCPServerConfig, ...]:
+    config_path = workspace_root / "pyagent.toml"
+    if not config_path.exists():
+        return ()
+
+    data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    servers = ((data.get("mcp") or {}).get("servers") or {})
+    if not isinstance(servers, dict):
+        return ()
+
+    parsed: list[MCPServerConfig] = []
+    for name, raw_server in servers.items():
+        if not isinstance(raw_server, dict):
+            continue
+        enabled = bool(raw_server.get("enabled", True))
+        command = raw_server.get("command")
+        if not isinstance(command, list) or not all(isinstance(part, str) for part in command):
+            continue
+        if not command:
+            continue
+        parsed.append(MCPServerConfig(name=str(name), command=tuple(command), enabled=enabled))
+    return tuple(parsed)
