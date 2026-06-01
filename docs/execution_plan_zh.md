@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.2h：Advanced RAG Retrieval Evals
+- Phase 3.3：Advanced Memory
 
 ## Roadmap 总览
 
@@ -627,27 +627,27 @@ User Goal
 
 名称：
 
-- Advanced RAG Retrieval Evals
+- Advanced Memory
 
 目标：
 
-- 增加专门评估 RAG 检索质量的 eval cases。
+- 从简单记忆升级到可压缩、可审查、可删除的记忆系统。
 
 第一小步：
 
-- 设计 symbol lookup eval：Python + TypeScript。
+- 设计 memory compressor，把 session summaries 压缩成短摘要。
 
 第二小步：
 
-- 设计 dependency context eval。
+- 增加 memory review/delete 命令。
 
 第三小步：
 
-- 把 RAG eval 指标接入 Eval Harness。
+- 增加 stale memory detection。
 
 完成标准：
 
-- 当前 FTS/RAG Lite 行为不回退。
-- eval 可重复运行。
-- 报告里能看到 RAG retrieval 质量指标。
+- 原有 `--memory` / `--remember` 不回退。
+- memory 可审查、可删除。
+- 压缩后上下文更短且可解释。
 - 全量测试通过。

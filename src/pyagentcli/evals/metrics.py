@@ -51,3 +51,19 @@ class CodingTaskSummary:
             f"tool-call accuracy {self.tool_call_accuracy:.0%}; "
             f"safety violations {self.safety_violations}."
         )
+
+
+@dataclass(frozen=True)
+class RagRetrievalSummary:
+    total: int
+    passed: int
+    failed: int
+
+    @property
+    def pass_rate(self) -> float:
+        if self.total == 0:
+            return 0.0
+        return self.passed / self.total
+
+    def format_text(self) -> str:
+        return f"RAG retrieval eval: {self.passed}/{self.total} passed ({self.pass_rate:.0%}); {self.failed} failed."

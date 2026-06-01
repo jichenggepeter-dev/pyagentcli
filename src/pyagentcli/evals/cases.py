@@ -30,6 +30,18 @@ class CodingTaskCase:
     simulated_tool_calls: tuple[dict[str, Any], ...] = ()
 
 
+@dataclass(frozen=True)
+class RagRetrievalCase:
+    case_id: str
+    name: str
+    initial_files: dict[str, str]
+    query_type: str
+    query: str
+    expected_path: str
+    expected_symbol: str | None = None
+    expected_text: str | None = None
+
+
 BUILTIN_CASES = [
     EvalCase(
         case_id="tools.registry",
@@ -76,6 +88,42 @@ BUILTIN_CODING_TASKS = [
             },
         ),
     )
+]
+
+
+BUILTIN_RAG_RETRIEVAL_CASES = [
+    RagRetrievalCase(
+        case_id="rag_retrieval.python_symbol",
+        name="Python symbol lookup",
+        initial_files={"src/app.py": "def project_status():\n    return 'READY'\n"},
+        query_type="symbol",
+        query="project_status",
+        expected_path="src/app.py",
+        expected_symbol="project_status",
+    ),
+    RagRetrievalCase(
+        case_id="rag_retrieval.typescript_symbol",
+        name="TypeScript symbol lookup",
+        initial_files={
+            "src/app.ts": "export function projectStatus() {\n  return 'READY';\n}\n"
+        },
+        query_type="symbol",
+        query="projectStatus",
+        expected_path="src/app.ts",
+        expected_symbol="projectStatus",
+    ),
+    RagRetrievalCase(
+        case_id="rag_retrieval.dependency_context",
+        name="Dependency context injection",
+        initial_files={
+            "src/app.py": "from helpers import normalize\n\nvalue = normalize('x')\n",
+            "src/helpers.py": "def normalize(value):\n    return value\n",
+        },
+        query_type="context",
+        query="Explain @src/app.py",
+        expected_path="src/app.py",
+        expected_text="src/app.py:1 imports helpers:normalize",
+    ),
 ]
 
 

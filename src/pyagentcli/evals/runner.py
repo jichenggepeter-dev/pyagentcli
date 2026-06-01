@@ -8,8 +8,17 @@ from tempfile import TemporaryDirectory
 from time import perf_counter
 from typing import Callable
 
-from pyagentcli.evals.cases import BUILTIN_CASES, BUILTIN_CODING_TASKS, CodingTaskCase, EvalCase, workspace_for_case
-from pyagentcli.evals.metrics import CodingTaskSummary, EvalSummary
+from pyagentcli.context_injection import inject_context_references
+from pyagentcli.evals.cases import (
+    BUILTIN_CASES,
+    BUILTIN_CODING_TASKS,
+    BUILTIN_RAG_RETRIEVAL_CASES,
+    CodingTaskCase,
+    EvalCase,
+    RagRetrievalCase,
+    workspace_for_case,
+)
+from pyagentcli.evals.metrics import CodingTaskSummary, EvalSummary, RagRetrievalSummary
 from pyagentcli.memory.project_memory import ProjectMemory
 from pyagentcli.rag.indexer import CodeIndexer
 from pyagentcli.safety.approval import ApprovalResult
@@ -41,6 +50,18 @@ class CodingTaskResult:
     duration_ms: int
 
 
+@dataclass(frozen=True)
+class RagRetrievalResult:
+    case_id: str
+    name: str
+    passed: bool
+    message: str
+    query_type: str
+    query: str
+    expected_path: str
+    duration_ms: int
+
+
 class ApproveAll:
     def request(
         self,
@@ -59,11 +80,22 @@ class EvalRunner:
         self.workspace_root = workspace_root.resolve()
         self.report_dir = self.workspace_root / ".pyagent" / "evals"
 
-    def run_builtin(self) -> tuple[EvalSummary, list[EvalResult], Path, CodingTaskSummary, list[CodingTaskResult]]:
+    def run_builtin(
+        self,
+    ) -> tuple[
+        EvalSummary,
+        list[EvalResult],
+        Path,
+        CodingTaskSummary,
+        list[CodingTaskResult],
+        RagRetrievalSummary,
+        list[RagRetrievalResult],
+    ]:
         with TemporaryDirectory() as tmp:
             eval_root = Path(tmp)
             results = [self._run_case(case, eval_root) for case in BUILTIN_CASES]
             coding_results = [self._run_coding_task(case, eval_root) for case in BUILTIN_CODING_TASKS]
+            rag_results = [self._run_rag_retrieval(case, eval_root) for case in BUILTIN_RAG_RETRIEVAL_CASES]
 
         summary = EvalSummary(
             total=len(results),
@@ -78,8 +110,13 @@ class EvalRunner:
             matched_tool_calls=sum(result.matched_tool_calls for result in coding_results),
             safety_violations=sum(result.safety_violations for result in coding_results),
         )
-        report_path = self._write_report(results, coding_results)
-        return summary, results, report_path, coding_summary, coding_results
+        rag_summary = RagRetrievalSummary(
+            total=len(rag_results),
+            passed=sum(1 for result in rag_results if result.passed),
+            failed=sum(1 for result in rag_results if not result.passed),
+        )
+        report_path = self._write_report(results, coding_results, rag_results)
+        return summary, results, report_path, coding_summary, coding_results, rag_summary, rag_results
 
     def _run_case(self, case: EvalCase, eval_root: Path) -> EvalResult:
         started = perf_counter()
@@ -173,7 +210,51 @@ class EvalRunner:
             duration_ms=int((perf_counter() - started) * 1000),
         )
 
-    def _write_report(self, results: list[EvalResult], coding_results: list[CodingTaskResult]) -> Path:
+    def _run_rag_retrieval(self, case: RagRetrievalCase, eval_root: Path) -> RagRetrievalResult:
+        started = perf_counter()
+        workspace = workspace_for_case(eval_root, EvalCase(case.case_id, case.name, case.query))
+        workspace.mkdir(parents=True, exist_ok=True)
+        for relative_path, content in case.initial_files.items():
+            target = workspace / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+        try:
+            CodeIndexer(workspace).rebuild()
+            if case.query_type == "symbol":
+                result = CodeIndexer(workspace).search_symbol(case.query)
+                passed = bool(result.hits) and result.hits[0].path == case.expected_path
+                if case.expected_symbol is not None:
+                    passed = passed and result.hits[0].symbol_name == case.expected_symbol
+                message = "passed" if passed else f"Unexpected symbol hits: {result.format_text()}"
+            elif case.query_type == "context":
+                result = inject_context_references(case.query, workspace)
+                passed = case.expected_text is not None and case.expected_text in result.enriched_goal
+                message = "passed" if passed else "Expected dependency context was not injected."
+            else:
+                passed = False
+                message = f"Unknown RAG query type: {case.query_type}"
+        except Exception as exc:  # noqa: BLE001 - eval failures should be reported.
+            passed = False
+            message = f"{type(exc).__name__}: {exc}"
+
+        return RagRetrievalResult(
+            case_id=case.case_id,
+            name=case.name,
+            passed=passed,
+            message=message,
+            query_type=case.query_type,
+            query=case.query,
+            expected_path=case.expected_path,
+            duration_ms=int((perf_counter() - started) * 1000),
+        )
+
+    def _write_report(
+        self,
+        results: list[EvalResult],
+        coding_results: list[CodingTaskResult],
+        rag_results: list[RagRetrievalResult],
+    ) -> Path:
         self.report_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.report_dir / f"eval_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.jsonl"
         with report_path.open("w", encoding="utf-8") as handle:
@@ -182,6 +263,9 @@ class EvalRunner:
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in coding_results:
                 payload = {"kind": "coding_task", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            for result in rag_results:
+                payload = {"kind": "rag_retrieval", **asdict(result)}
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
         return report_path
 

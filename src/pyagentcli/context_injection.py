@@ -150,6 +150,8 @@ def _format_symbol_hit(hit: IndexSearchHit, workspace_root: Path) -> str:
 
 
 def _format_dependency_context_for_file(target: Path, workspace_root: Path) -> str:
+    workspace_root = workspace_root.resolve()
+    target = target.resolve()
     try:
         relative = str(target.relative_to(workspace_root))
     except ValueError:

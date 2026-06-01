@@ -6,6 +6,7 @@ It has two layers:
 
 - platform evals
 - coding task evals
+- RAG retrieval evals
 
 Neither layer requires a real model yet. This keeps the scorer deterministic before model-backed execution is added.
 
@@ -35,6 +36,16 @@ The reported metrics are:
 - tool-call accuracy
 - safety violation count
 
+## RAG Retrieval Evals
+
+RAG retrieval evals check whether the retrieval layer returns the expected context:
+
+- Python symbol lookup
+- TypeScript symbol lookup
+- dependency context injection
+
+These evals do not call a model. They build fixture workspaces, rebuild the local index, and check deterministic retrieval output.
+
 ## Usage
 
 ```bash
@@ -54,6 +65,7 @@ Report lines include a `kind` field:
 ```json
 {"kind": "platform", "case_id": "tools.registry", "...": "..."}
 {"kind": "coding_task", "case_id": "coding.update_readme_status", "...": "..."}
+{"kind": "rag_retrieval", "case_id": "rag_retrieval.typescript_symbol", "...": "..."}
 ```
 
 ## Why Start Deterministic
@@ -65,4 +77,4 @@ Agent evaluation should separate platform regressions from model behavior. These
 1. Replace simulated tool calls with captured Agent runs.
 2. Add expected diff scoring, not only expected text containment.
 3. Feed Reviewer output into eval scoring.
-4. Add per-model comparison reports.
+4. Add per-model and per-retriever comparison reports.

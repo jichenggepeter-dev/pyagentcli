@@ -95,6 +95,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - initial cases for tool registry, safety, RAG, and memory
 - coding task eval fixture with expected file outcome
 - task success rate, tool-call accuracy, and safety violation metrics
+- RAG retrieval evals for Python symbols, TypeScript symbols, and dependency context
 
 ### MCP v0.1
 
@@ -132,7 +133,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 ### Advanced RAG
 
 - richer dependency context such as imported-by edges
-- retrieval quality eval cases
+- retriever comparison metrics
 
 ### Advanced Memory
 
@@ -149,8 +150,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced RAG retrieval evals**
-   Add eval cases that measure symbol lookup, dependency context, and hybrid retrieval quality.
+1. **Advanced Memory**
+   Add memory compression, stale memory detection, and memory review/delete commands.
 
 2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.
