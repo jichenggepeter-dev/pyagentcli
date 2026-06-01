@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from pyagentcli.rag.indexer import IGNORED_DIRS, IGNORED_SUFFIXES, CodeIndexer
+from pyagentcli.rag.retriever import HybridRetriever
 from pyagentcli.tools.base import RiskLevel, ToolContext, ToolResult, function_schema
 
 
@@ -208,7 +209,7 @@ class SearchIndexTool:
             return ToolResult.failure("Missing required non-empty string argument: query")
 
         try:
-            result = CodeIndexer(context.workspace_root).search(
+            result = HybridRetriever(context.workspace_root).search(
                 query,
                 max_results=_coerce_max_results(args.get("max_results")),
             )
@@ -221,6 +222,8 @@ class SearchIndexTool:
             matches=len(result.hits),
             index=str(result.database_path),
             stale_paths=result.stale_paths,
+            embedding_provider=result.embedding_provider,
+            vector_enabled=result.vector_enabled,
         )
 
 

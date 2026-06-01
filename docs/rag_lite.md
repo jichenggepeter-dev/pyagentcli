@@ -1,6 +1,6 @@
-# RAG Lite
+# RAG Lite and Hybrid Retrieval
 
-RAG Lite is PyAgentCLI's first code-retrieval layer.
+RAG Lite is PyAgentCLI's first code-retrieval layer. It now sits behind a small hybrid retrieval interface, so deterministic FTS search can later be combined with vector search without changing the Agent tool contract.
 
 The first version intentionally avoids embeddings and vector databases. It starts with two deterministic local search tools:
 
@@ -9,6 +9,17 @@ search_files(query, path=".", max_results=20, case_sensitive=false)
 search_text(query, path=".", max_results=20, case_sensitive=false)
 search_index(query, max_results=20)
 ```
+
+Advanced RAG v0.1 adds:
+
+- `EmbeddingProvider` interface
+- `NullEmbeddingProvider` fallback
+- deterministic `HashEmbeddingProvider` for tests and future vector-store plumbing
+- `HybridRetriever`
+- `HybridSearchResult`
+- `RetrievalHit` with source and score fields
+
+When no embedding provider is configured, vector retrieval is disabled and `search_index` behaves like the previous SQLite FTS search.
 
 ## Why Start With Text Search
 
@@ -44,11 +55,13 @@ Exact search is predictable, cheap, local, and easy to audit.
 
 `search_index`:
 
-- Searches the local SQLite FTS index at `.pyagent/index.sqlite`.
+- Searches through `HybridRetriever`.
+- Uses the local SQLite FTS index at `.pyagent/index.sqlite`.
 - Returns indexed chunk locations, symbol labels when available, and short highlighted snippets.
 - Fails safely with a clear message if the index has not been built yet.
 - Warns when indexed files have changed, disappeared, or new indexable files have appeared.
 - Works best for symbols, config keys, error messages, and exact phrases.
+- Reports metadata about whether vector retrieval is enabled.
 
 ## Example
 
@@ -146,8 +159,23 @@ Example output:
 app.py:1-2 function project_status: def [project_status](): return 'READY'
 ```
 
+## Hybrid Retrieval Shape
+
+The retrieval layer now has this shape:
+
+```text
+search_index tool
+  -> HybridRetriever
+    -> SQLite FTS hits
+    -> optional vector hits
+    -> deduped RetrievalHit list
+```
+
+This keeps the current local behavior stable while making room for embeddings, vector stores, reranking, and import-graph signals.
+
 ## Next Steps
 
 1. Add symbol-aware chunking for more languages.
-2. Add embedding retrieval after deterministic retrieval is useful.
-3. Add automatic index refresh as an explicit approved action.
+2. Add a real embedding provider and vector store.
+3. Add import graph or dependency graph signals.
+4. Add automatic index refresh as an explicit approved action.

@@ -35,7 +35,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.2：Advanced RAG
+- Phase 3.2b：Advanced RAG Vector Store
 
 ## Roadmap 总览
 
@@ -524,6 +524,10 @@ User Goal
 
 ### 3.2 Advanced RAG
 
+状态：
+
+- 已完成第一版 embedding provider interface 和 hybrid retrieval 结果结构。
+
 目标：
 
 - 从 Lite 检索升级到更接近 coding agent 的代码理解。
@@ -623,27 +627,28 @@ User Goal
 
 名称：
 
-- Advanced RAG
+- Advanced RAG Vector Store
 
 目标：
 
-- 从 Lite 检索升级到更接近 coding agent 的代码理解能力。
+- 在现有 HybridRetriever 后面接入真实 vector store 持久化，但保持 FTS fallback。
 
 第一小步：
 
-- 设计 embedding provider interface，并保持无 key 时 FTS 仍可用。
+- 设计 vector table schema，和现有 chunks 表用 chunk id 或 path/line 对齐。
 
 第二小步：
 
-- 加入 hybrid retrieval 结果结构：FTS + optional vector hits。
+- 在 `pyagent --index` 时可选生成 embeddings。
 
 第三小步：
 
-- 为后续 import graph / reranker 预留接口，但不一次性实现所有能力。
+- HybridRetriever 合并 FTS hits 和 vector hits，并去重。
 
 完成标准：
 
 - 当前 FTS/RAG Lite 行为不回退。
 - embedding 未配置时系统不报错。
-- retrieval result 可解释。
+- vector store 缺失时系统不报错。
+- retrieval result 标明来源。
 - 全量测试通过。

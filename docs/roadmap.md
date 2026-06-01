@@ -59,6 +59,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - exact `@symbol` lookup with fallback to FTS
 - `@file`, `@folder`, and `@symbol` context injection
 - stale-index warning
+- hybrid retrieval interface
+- optional embedding provider interface with disabled-by-default fallback
 
 ### Memory
 
@@ -120,8 +122,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced RAG
 
-- embeddings
-- hybrid retrieval
+- real embedding provider integration
+- vector store persistence
 - import graph or dependency graph
 - multi-language symbol chunking
 
@@ -140,11 +142,14 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced Multi-Agent**
+1. **Advanced RAG vector store**
+   Add a real embedding provider and persist vector hits alongside FTS chunks.
+
+2. **Advanced Multi-Agent**
    Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.
 
-2. **Advanced Browser tools**
+3. **Advanced Browser tools**
    Add Playwright-backed screenshots, DOM inspection, console logs, and local UI interaction.
 
-3. **Model-backed Eval v0.3**
+4. **Model-backed Eval v0.3**
    Replace simulated tool calls with captured Agent runs and expected diff scoring.
