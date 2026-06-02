@@ -17,10 +17,12 @@ class ReviewReport:
     tools: list[str]
     paths: list[str]
     gate: ReviewerGateDecision
+    handoff_recommendation: str
 
     def format_text(self) -> str:
         lines = [f"Review: {self.summary}", ""]
         lines.append(self.gate.format_text())
+        lines.append(f"Handoff recommendation: {self.handoff_recommendation}")
         lines.append("")
         lines.append("Risks:")
         lines.extend(f"- {risk}" for risk in (self.risks or ["No obvious risks found."]))
@@ -48,6 +50,7 @@ class Reviewer:
         suggested_tests = _suggest_tests(run, paths)
         summary = _summary(run, paths)
         gate = _gate_decision(reviewer_input)
+        handoff_recommendation = _handoff_recommendation(reviewer_input, gate)
         report = ReviewReport(
             summary=summary,
             risks=risks,
@@ -55,6 +58,7 @@ class Reviewer:
             tools=tools,
             paths=paths,
             gate=gate,
+            handoff_recommendation=handoff_recommendation,
         )
         self.save(run, report)
         return report
@@ -144,3 +148,16 @@ def _gate_decision(reviewer_input: ReviewerInputContract) -> ReviewerGateDecisio
     observed = sorted(status for status in set(reviewer_input.step_statuses) if status in blocking_statuses)
     reasons = tuple(f"step status present: {status}" for status in observed)
     return ReviewerGateDecision(passed=not reasons, reasons=reasons)
+
+
+def _handoff_recommendation(reviewer_input: ReviewerInputContract, gate: ReviewerGateDecision) -> str:
+    statuses = set(reviewer_input.step_statuses)
+    if gate.passed:
+        return "accept after running the suggested verification commands"
+    if "failed" in statuses:
+        return "retry the failed step after inspecting the execution result"
+    if "skipped" in statuses:
+        return "ask the user to retry, explicitly skip, or accept the skipped work as out of scope"
+    if "cancelled" in statuses:
+        return "resume the plan only after renewed user approval"
+    return "inspect the plan state before continuing"

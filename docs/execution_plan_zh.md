@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.4：Advanced Multi-Agent
+- Phase 3.5：Model-backed Multi-Agent
 
 ## Roadmap 总览
 
@@ -45,7 +45,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 | Phase 0 | 产品需求、架构设计、路线拆解 | 已完成 |
 | Phase 1 | Agent Loop、工具、安全、RAG Lite、Memory、Reviewer、Eval | 已完成 |
 | Phase 2 | MCP、Browser、真实扩展能力 | 进行中 |
-| Phase 3 | Multi-Agent、Advanced RAG、Advanced Memory | 未开始 |
+| Phase 3 | Multi-Agent、Advanced RAG、Advanced Memory | 进行中 |
 | Phase 4 | Skill System、Model-backed Eval、工程化发布 | 进行中 |
 
 ## Phase 1：核心 Agent CLI
@@ -486,11 +486,11 @@ enabled = true
 
 ## Phase 3：智能体能力增强
 
-### 3.1 Multi-Agent v0.2
+### 3.1 Multi-Agent v0.3
 
 状态：
 
-- 已完成第一版 contract 和 Reviewer gate。
+- 已完成 role contract、Reviewer gate、Planner/Executor/Reviewer 持久化 handoff、Reviewer 下一步建议。
 
 目标：
 
@@ -636,27 +636,27 @@ User Goal
 
 名称：
 
-- Advanced Multi-Agent
+- Model-backed Multi-Agent
 
 目标：
 
-- 把 Planner、Executor、Reviewer 从“同一运行时的三个能力”升级成更清晰的角色协作边界。
+- 在已经持久化 handoff 的基础上，把 Planner、Executor、Reviewer 拆成更明确的模型角色配置。
 
 第一小步：
 
-- 为 Planner / Executor / Reviewer 增加更明确的输入输出契约和 handoff 记录。
+- 为 Planner / Executor / Reviewer 增加可配置的 role prompt 和模型参数入口。
 
 第二小步：
 
-- 让 Reviewer 可以基于执行结果给出 retry / accept / block 决策，并把建议写入 plan。
+- 保持 handoff 数据契约不变，只替换角色内部的模型调用边界。
 
 第三小步：
 
-- 为失败 plan 增加 Reviewer 驱动的下一步建议，方便用户决定 resume、retry 或 skip。
+- 给 retry proposal 增加只读生成能力，但执行仍必须经过用户审批。
 
 完成标准：
 
-- 三个角色的输入输出可审计。
-- plan 中能看到 reviewer handoff 建议。
-- 不自动越权重试，仍需用户审批。
+- 三个角色可单独配置 prompt/model。
+- handoff JSON 向后兼容。
+- retry proposal 不自动执行。
 - 全量测试通过。

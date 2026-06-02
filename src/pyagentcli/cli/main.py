@@ -5,7 +5,7 @@ import argparse
 from pyagentcli.agent.loop import AgentLoop
 from pyagentcli.agent.plan_executor import PlanExecutor
 from pyagentcli.agent.plan_store import PlanStore
-from pyagentcli.agent.planner import VALID_STEP_STATUSES, PlanRun, PlanRunStatus, Planner
+from pyagentcli.agent.planner import VALID_STEP_STATUSES, AgentHandoff, PlanPreview, PlanRun, PlanRunStatus, Planner
 from pyagentcli.agent.reviewer import Reviewer
 from pyagentcli.cli.repl import run_repl
 from pyagentcli.config import load_config
@@ -367,12 +367,14 @@ def plan_task(goal: str, *, workspace: str | None = None) -> str:
     planner = Planner(build_llm_client(config))
     store = PlanStore(config.workspace_root)
     enriched_goal = inject_context_references(goal, config.workspace_root).enriched_goal
+    plan = planner.preview(enriched_goal)
     run = store.save(
         PlanRun(
             plan_id=None,
             goal=goal,
-            plan=planner.preview(enriched_goal),
+            plan=plan,
             status=PlanRunStatus.PLANNED,
+            handoffs=[_planner_handoff(plan)],
         )
     )
     return run.format_text()
@@ -390,6 +392,7 @@ def execute_planned_task(goal: str, *, workspace: str | None = None, interactive
             goal=goal,
             plan=plan,
             status=PlanRunStatus.PLANNED,
+            handoffs=[_planner_handoff(plan)],
         )
     )
     plan_text = _with_index_freshness_warning(planned_run.format_text(), config.workspace_root)
@@ -408,6 +411,15 @@ def execute_planned_task(goal: str, *, workspace: str | None = None, interactive
                 goal=goal,
                 plan=plan,
                 status=PlanRunStatus.CANCELLED,
+                handoffs=[
+                    *planned_run.handoffs,
+                    AgentHandoff(
+                        role="executor",
+                        summary="Plan execution was cancelled before start.",
+                        status="cancelled",
+                        next_action="ask the user to resume when ready",
+                    ),
+                ],
                 created_at=planned_run.created_at,
             )
         )
@@ -473,6 +485,16 @@ def resume_plan(plan_id: str, *, workspace: str | None = None, interactive: bool
                 plan=run.plan,
                 status=PlanRunStatus.CANCELLED,
                 execution_result=run.execution_result,
+                review_result=run.review_result,
+                handoffs=[
+                    *run.handoffs,
+                    AgentHandoff(
+                        role="executor",
+                        summary="Plan resume was cancelled before execution.",
+                        status="cancelled",
+                        next_action="ask the user to resume when ready",
+                    ),
+                ],
                 created_at=run.created_at,
             )
         )
@@ -515,6 +537,8 @@ def retry_step(
             plan=retry_plan,
             status=PlanRunStatus.PLANNED,
             execution_result=run.execution_result,
+            review_result=run.review_result,
+            handoffs=run.handoffs,
             created_at=run.created_at,
         )
     )
@@ -532,6 +556,17 @@ def retry_step(
                 plan=retry_run.plan,
                 status=PlanRunStatus.CANCELLED,
                 execution_result=retry_run.execution_result,
+                review_result=retry_run.review_result,
+                handoffs=[
+                    *retry_run.handoffs,
+                    AgentHandoff(
+                        role="executor",
+                        summary="Step retry was cancelled before execution.",
+                        status="cancelled",
+                        step_id=step_id,
+                        next_action="ask the user to resume when ready",
+                    ),
+                ],
                 created_at=retry_run.created_at,
             )
         )
@@ -584,6 +619,17 @@ def set_step_status(
             plan=updated_plan,
             status=PlanRunStatus.PLANNED,
             execution_result=run.execution_result,
+            review_result=run.review_result,
+            handoffs=[
+                *run.handoffs,
+                AgentHandoff(
+                    role="reviewer",
+                    summary=f"Step status manually set to {normalized_status}.",
+                    status=normalized_status,
+                    step_id=step_id,
+                    next_action="resume or review the plan state",
+                ),
+            ],
             created_at=run.created_at,
         )
     )
@@ -614,6 +660,18 @@ def _record_plan_memory(workspace_root, run: PlanRun) -> None:
     )
 
 
+def _planner_handoff(plan: PlanPreview) -> AgentHandoff:
+    risks = sorted({str(step.risk).upper() for step in plan.steps})
+    risk_text = ", ".join(risks) if risks else "none"
+    return AgentHandoff(
+        role="planner",
+        summary="Produced structured execution plan.",
+        status="planned",
+        detail=f"{len(plan.steps)} step(s); risks: {risk_text}.",
+        next_action="ask user approval before execution",
+    )
+
+
 def _review_plan_execution(workspace_root, store: PlanStore, run: PlanRun) -> PlanRun:
     report = Reviewer(workspace_root).review_plan(run)
     status = run.status
@@ -627,6 +685,16 @@ def _review_plan_execution(workspace_root, store: PlanStore, run: PlanRun) -> Pl
             status=status,
             execution_result=run.execution_result,
             review_result=report.format_text(),
+            handoffs=[
+                *run.handoffs,
+                AgentHandoff(
+                    role="reviewer",
+                    summary="Reviewed completed plan execution.",
+                    status="passed" if report.gate.passed else "blocked",
+                    detail=report.gate.format_text(),
+                    next_action=report.handoff_recommendation,
+                ),
+            ],
             created_at=run.created_at,
         )
     )

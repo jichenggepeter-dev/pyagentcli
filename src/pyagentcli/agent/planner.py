@@ -173,6 +173,50 @@ class PlanPreview:
         )
 
 
+@dataclass(frozen=True)
+class AgentHandoff:
+    role: str
+    summary: str
+    status: str
+    detail: str | None = None
+    step_id: str | None = None
+    next_action: str | None = None
+
+    def format_text(self) -> str:
+        prefix = f"- {self.role}: {self.summary} [{self.status}]"
+        suffixes: list[str] = []
+        if self.step_id:
+            suffixes.append(f"step={self.step_id}")
+        if self.next_action:
+            suffixes.append(f"next={self.next_action}")
+        if suffixes:
+            prefix = f"{prefix} ({'; '.join(suffixes)})"
+        if self.detail:
+            return f"{prefix}\n  {self.detail}"
+        return prefix
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "role": self.role,
+            "summary": self.summary,
+            "status": self.status,
+            "detail": self.detail,
+            "step_id": self.step_id,
+            "next_action": self.next_action,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AgentHandoff":
+        return cls(
+            role=str(payload.get("role") or "unknown"),
+            summary=str(payload.get("summary") or ""),
+            status=str(payload.get("status") or "unknown"),
+            detail=payload.get("detail"),
+            step_id=payload.get("step_id"),
+            next_action=payload.get("next_action"),
+        )
+
+
 class PlanRunStatus(StrEnum):
     PLANNED = "planned"
     APPROVED = "approved"
@@ -190,6 +234,7 @@ class PlanRun:
     goal: str | None = None
     execution_result: str | None = None
     review_result: str | None = None
+    handoffs: list[AgentHandoff] = field(default_factory=list)
     created_at: str | None = None
     updated_at: str | None = None
 
@@ -204,7 +249,23 @@ class PlanRun:
             lines.extend(["", "Execution result:", self.execution_result])
         if self.review_result is not None:
             lines.extend(["", "Review result:", self.review_result])
+        if self.handoffs:
+            lines.extend(["", "Agent handoffs:"])
+            lines.extend(handoff.format_text() for handoff in self.handoffs)
         return "\n".join(lines).rstrip()
+
+    def with_handoff(self, handoff: AgentHandoff) -> "PlanRun":
+        return PlanRun(
+            plan_id=self.plan_id,
+            goal=self.goal,
+            status=self.status,
+            plan=self.plan,
+            execution_result=self.execution_result,
+            review_result=self.review_result,
+            handoffs=[*self.handoffs, handoff],
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -215,6 +276,7 @@ class PlanRun:
             "updated_at": self.updated_at,
             "execution_result": self.execution_result,
             "review_result": self.review_result,
+            "handoffs": [handoff.to_dict() for handoff in self.handoffs],
             "plan": self.plan.to_dict(),
         }
 
@@ -228,6 +290,11 @@ class PlanRun:
             updated_at=payload.get("updated_at"),
             execution_result=payload.get("execution_result"),
             review_result=payload.get("review_result"),
+            handoffs=[
+                AgentHandoff.from_dict(item)
+                for item in payload.get("handoffs") or []
+                if isinstance(item, dict)
+            ],
             plan=PlanPreview.from_dict(payload.get("plan") or {}),
         )
 

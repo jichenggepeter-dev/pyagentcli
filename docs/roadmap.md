@@ -137,12 +137,14 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - external URL denial by default
 - title and normalized text snapshot extraction
 
-### Multi-Agent v0.2
+### Multi-Agent v0.3
 
 - explicit Planner / Executor / Reviewer role contracts
 - `ExecutorStepContract` for step-level execution
 - `ReviewerGateDecision` for final plan status gating
 - Reviewer gate can downgrade a successful execution to failed when steps were skipped, failed, or cancelled
+- persisted agent handoffs for Planner, Executor, and Reviewer
+- Reviewer handoff recommendations for accept, retry, resume, or user decision
 
 ## Not Yet Built
 
@@ -166,8 +168,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced Multi-Agent**
-   Split Planner, Executor, and Reviewer into separate model-backed role clients and add retry handoff.
+1. **Model-backed Multi-Agent**
+   Split Planner, Executor, and Reviewer into separate model-backed role clients while preserving the persisted handoff contract.
 
 2. **Advanced Browser tools**
    Add Playwright-backed screenshots, DOM inspection, console logs, and local UI interaction.

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from pyagentcli.agent.plan_store import PlanStore
-from pyagentcli.agent.planner import PlanPreview, PlanRun, PlanRunStatus, PlanStep
+from pyagentcli.agent.planner import AgentHandoff, PlanPreview, PlanRun, PlanRunStatus, PlanStep
 
 
 def test_plan_store_saves_and_loads_plan_run(tmp_path: Path) -> None:
@@ -51,6 +51,34 @@ def test_plan_store_preserves_review_result(tmp_path: Path) -> None:
 
     assert loaded.review_result == "Review: looks good"
     assert "Review result:" in loaded.format_text()
+
+
+def test_plan_store_preserves_agent_handoffs(tmp_path: Path) -> None:
+    store = PlanStore(tmp_path)
+    saved = store.save(
+        PlanRun(
+            plan_id="plan_handoff",
+            goal="handoff task",
+            status=PlanRunStatus.PLANNED,
+            plan=PlanPreview(summary="Handoff", steps=[]),
+            handoffs=[
+                AgentHandoff(
+                    role="planner",
+                    summary="Produced plan.",
+                    status="planned",
+                    detail="1 step.",
+                    next_action="ask approval",
+                )
+            ],
+        )
+    )
+
+    loaded = store.load(saved.plan_id or "")
+
+    assert loaded.handoffs[0].role == "planner"
+    assert loaded.handoffs[0].next_action == "ask approval"
+    assert "Agent handoffs:" in loaded.format_text()
+    assert "planner: Produced plan. [planned]" in loaded.format_text()
 
 
 def test_plan_store_lists_runs_newest_first(tmp_path: Path) -> None:

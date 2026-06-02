@@ -111,6 +111,8 @@ def test_plan_task_persists_and_show_plan_loads_it(tmp_path, monkeypatch) -> Non
     shown = show_plan(plan_id, workspace=str(tmp_path))
 
     assert "PlanRun status: planned" in result
+    assert "Agent handoffs:" in result
+    assert "planner: Produced structured execution plan" in result
     assert "Goal: change README" in shown
     assert plan_id in shown
 
@@ -339,6 +341,9 @@ def test_review_gate_blocks_successful_plan_with_skipped_step(tmp_path) -> None:
     assert reviewed.status == PlanRunStatus.FAILED
     assert reviewed.review_result is not None
     assert "Gate: block" in reviewed.review_result
+    assert reviewed.handoffs[-1].role == "reviewer"
+    assert reviewed.handoffs[-1].status == "blocked"
+    assert "retry, explicitly skip" in (reviewed.handoffs[-1].next_action or "")
 
 
 def test_set_step_status_rejects_invalid_status(tmp_path) -> None:

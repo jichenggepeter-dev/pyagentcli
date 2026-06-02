@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pyagentcli.agent.contracts import ExecutorStepContract
 from pyagentcli.agent.plan_store import PlanStore
-from pyagentcli.agent.planner import PlanRun, PlanRunStatus, PlanStep
+from pyagentcli.agent.planner import AgentHandoff, PlanRun, PlanRunStatus, PlanStep
 from pyagentcli.safety.approval import ApprovalHandler
 from pyagentcli.safety.policy import SafetyAction, SafetyDecision
 from pyagentcli.tools.base import RiskLevel
@@ -23,16 +23,36 @@ class PlanExecutor:
                     plan=run.plan,
                     status=PlanRunStatus.FAILED,
                     execution_result="Plan has no saved goal.",
+                    handoffs=[
+                        *run.handoffs,
+                        AgentHandoff(
+                            role="executor",
+                            summary="Plan execution failed before starting.",
+                            status="failed",
+                            detail="Plan has no saved goal.",
+                            next_action="create a new plan with a saved goal",
+                        ),
+                    ],
                     created_at=run.created_at,
                 )
             )
 
+        handoffs = [
+            *run.handoffs,
+            AgentHandoff(
+                role="executor",
+                summary="Started approved plan execution.",
+                status="running",
+                detail=f"Executing {len(run.plan.steps)} planned step(s).",
+            ),
+        ]
         current = self.store.save(
             PlanRun(
                 plan_id=run.plan_id,
                 goal=run.goal,
                 plan=run.plan,
                 status=PlanRunStatus.RUNNING,
+                handoffs=handoffs,
                 created_at=run.created_at,
             )
         )
@@ -62,6 +82,17 @@ class PlanExecutor:
                         plan=skipped_plan,
                         status=PlanRunStatus.RUNNING,
                         execution_result=_join_outputs(execution_outputs),
+                        handoffs=[
+                            *current.handoffs,
+                            AgentHandoff(
+                                role="executor",
+                                summary="Skipped plan step after approval denial.",
+                                status="skipped",
+                                detail=approval.reason,
+                                step_id=step.id,
+                                next_action="ask the user whether to retry or skip this step",
+                            ),
+                        ],
                         created_at=current.created_at,
                     )
                 )
@@ -75,6 +106,7 @@ class PlanExecutor:
                     plan=running_plan,
                     status=PlanRunStatus.RUNNING,
                     execution_result=_join_outputs(execution_outputs),
+                    handoffs=current.handoffs,
                     created_at=current.created_at,
                 )
             )
@@ -94,6 +126,17 @@ class PlanExecutor:
                         plan=failed_plan,
                         status=PlanRunStatus.FAILED,
                         execution_result=_join_outputs(execution_outputs + [f"{step.id}: failed: {exc}"]),
+                        handoffs=[
+                            *current.handoffs,
+                            AgentHandoff(
+                                role="executor",
+                                summary="Plan step failed during execution.",
+                                status="failed",
+                                detail=f"{type(exc).__name__}: {exc}",
+                                step_id=step.id,
+                                next_action="retry this step after inspecting the failure",
+                            ),
+                        ],
                         created_at=current.created_at,
                     )
                 )
@@ -112,6 +155,16 @@ class PlanExecutor:
                     plan=succeeded_plan,
                     status=PlanRunStatus.RUNNING,
                     execution_result=_join_outputs(execution_outputs),
+                    handoffs=[
+                        *current.handoffs,
+                        AgentHandoff(
+                            role="executor",
+                            summary="Completed plan step.",
+                            status="success",
+                            detail=summary,
+                            step_id=step.id,
+                        ),
+                    ],
                     created_at=current.created_at,
                 )
             )
@@ -123,6 +176,15 @@ class PlanExecutor:
                 plan=current.plan,
                 status=PlanRunStatus.SUCCESS,
                 execution_result=_join_outputs(execution_outputs),
+                handoffs=[
+                    *current.handoffs,
+                    AgentHandoff(
+                        role="executor",
+                        summary="Finished plan execution.",
+                        status="success",
+                        next_action="run reviewer gate",
+                    ),
+                ],
                 created_at=current.created_at,
             )
         )

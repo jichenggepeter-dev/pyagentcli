@@ -65,6 +65,8 @@ def test_plan_executor_runs_steps_serially(tmp_path: Path) -> None:
     assert [step.status for step in completed.plan.steps] == ["success", "success"]
     assert "S1: read complete" in (completed.execution_result or "")
     assert "S2: edit complete" in (completed.execution_result or "")
+    assert [handoff.role for handoff in completed.handoffs] == ["executor", "executor", "executor", "executor"]
+    assert completed.handoffs[-1].next_action == "run reviewer gate"
     assert len(calls) == 2
     assert "Step S1: Read" in calls[0]
     assert "Role: Executor Agent" in calls[0]
@@ -84,6 +86,9 @@ def test_plan_executor_stops_on_step_failure(tmp_path: Path) -> None:
     assert failed.status == PlanRunStatus.FAILED
     assert [step.status for step in failed.plan.steps] == ["success", "failed"]
     assert "boom" in (failed.execution_result or "")
+    assert failed.handoffs[-1].status == "failed"
+    assert failed.handoffs[-1].step_id == "S2"
+    assert "retry this step" in (failed.handoffs[-1].next_action or "")
     assert len(calls) == 2
 
 
@@ -147,3 +152,4 @@ def test_plan_executor_skips_denied_risky_step(tmp_path: Path) -> None:
     assert len(calls) == 1
     assert "Step S1: Read" in calls[0]
     assert "S2: skipped by approval: denied in test" in (completed.execution_result or "")
+    assert any(handoff.status == "skipped" and handoff.step_id == "S2" for handoff in completed.handoffs)
