@@ -66,3 +66,31 @@ dimensions = 24
     assert config.embedding.base_url == "https://example.test/v1"
     assert config.embedding.api_key_env == "PYAGENT_EMBEDDING_API_KEY"
     assert config.embedding.dimensions == 24
+
+
+def test_load_config_reads_agent_role_configs(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyagent.toml").write_text(
+        """
+[agents.planner]
+model = "planner-model"
+system_prompt = "Plan with tiny safe steps."
+
+[agents.executor]
+model = "executor-model"
+system_prompt = "Execute only the approved step."
+
+[agents.reviewer]
+model = "reviewer-model"
+system_prompt = "Review conservatively."
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(interactive=False)
+
+    assert config.role_config("planner").model == "planner-model"
+    assert config.role_config("planner").system_prompt == "Plan with tiny safe steps."
+    assert config.role_config("executor").model == "executor-model"
+    assert config.role_config("reviewer").system_prompt == "Review conservatively."
+    assert config.role_config("missing").model is None

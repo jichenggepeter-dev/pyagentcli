@@ -23,6 +23,13 @@ class EmbeddingConfig:
 
 
 @dataclass(frozen=True)
+class AgentRoleConfig:
+    role: str
+    model: str | None = None
+    system_prompt: str | None = None
+
+
+@dataclass(frozen=True)
 class AppConfig:
     workspace_root: Path
     model: str
@@ -32,6 +39,13 @@ class AppConfig:
     interactive: bool = True
     mcp_servers: tuple[MCPServerConfig, ...] = ()
     embedding: EmbeddingConfig = EmbeddingConfig()
+    agent_roles: tuple[AgentRoleConfig, ...] = ()
+
+    def role_config(self, role: str) -> AgentRoleConfig:
+        for config in self.agent_roles:
+            if config.role == role:
+                return config
+        return AgentRoleConfig(role=role)
 
 
 def load_config(workspace: str | None = None, *, interactive: bool = True) -> AppConfig:
@@ -54,6 +68,7 @@ def load_config(workspace: str | None = None, *, interactive: bool = True) -> Ap
         interactive=interactive,
         mcp_servers=load_project_mcp_servers(workspace_root),
         embedding=load_project_embedding_config(workspace_root),
+        agent_roles=load_project_agent_role_configs(workspace_root),
     )
 
 
@@ -117,6 +132,30 @@ def load_project_embedding_config(workspace_root: Path) -> EmbeddingConfig:
         api_key_env=str(raw.get("api_key_env") or "OPENAI_API_KEY"),
         dimensions=max(4, dimensions),
     )
+
+
+def load_project_agent_role_configs(workspace_root: Path) -> tuple[AgentRoleConfig, ...]:
+    data = _load_project_toml(workspace_root)
+    raw_agents = data.get("agents") or {}
+    if not isinstance(raw_agents, dict):
+        return ()
+
+    configs: list[AgentRoleConfig] = []
+    for role in ("planner", "executor", "reviewer"):
+        raw = raw_agents.get(role) or {}
+        if not isinstance(raw, dict):
+            continue
+        model = _optional_string(raw.get("model"))
+        system_prompt = _optional_string(raw.get("system_prompt"))
+        configs.append(AgentRoleConfig(role=role, model=model, system_prompt=system_prompt))
+    return tuple(configs)
+
+
+def _optional_string(value) -> str | None:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    return stripped or None
 
 
 def _load_project_toml(workspace_root: Path) -> dict:

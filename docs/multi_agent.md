@@ -21,6 +21,31 @@ Planner handoff
 
 Handoffs are saved inside the plan JSON and shown by `--show-plan`, so a user can inspect how the work moved between roles.
 
+## Role Configuration
+
+Planner, Executor, and Reviewer can have separate role configuration in `pyagent.toml`:
+
+```toml
+[agents.planner]
+model = "gpt-4.1-mini"
+system_prompt = "Plan with small, safe, reviewable steps."
+
+[agents.executor]
+model = "gpt-4.1-mini"
+system_prompt = "Execute exactly the approved step and stop."
+
+[agents.reviewer]
+model = "gpt-4.1-mini"
+system_prompt = "Review conservatively and recommend the next action."
+```
+
+Current behavior:
+
+- Planner uses the planner model and planner system prompt.
+- Planned execution uses the executor model and executor system prompt.
+- Reviewer config is parsed and reserved for model-backed review and retry proposal generation; the current Reviewer gate remains deterministic.
+- If a role does not define a model, PyAgentCLI uses the default `PYAGENT_MODEL`.
+
 ## Planner
 
 The Planner produces a structured `PlanPreview`:
@@ -112,6 +137,6 @@ What did the reviewer recommend next?
 
 ## Next Steps
 
-- Split Planner, Executor, and Reviewer into model-backed role clients.
+- Add model-backed Reviewer proposal generation using the existing reviewer role config.
 - Feed Reviewer gate outcomes into eval scoring.
 - Add model-backed retry proposal generation while keeping execution user-approved.

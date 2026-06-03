@@ -8,8 +8,10 @@ class FakePlannerLLM:
     def __init__(self, content: str) -> None:
         self.content = content
         self.last_tools: list[dict[str, Any]] | None = None
+        self.last_messages: list[Message] | None = None
 
     def chat(self, messages: list[Message], tools: list[dict[str, Any]]) -> LLMResponse:
+        self.last_messages = messages
         self.last_tools = tools
         return LLMResponse(content=self.content)
 
@@ -46,6 +48,16 @@ def test_planner_parses_json_plan() -> None:
     assert len(plan.steps) == 2
     assert plan.steps[1].suggested_tools == ["edit_file"]
     assert plan.steps[0].status == "pending"
+
+
+def test_planner_uses_custom_system_prompt() -> None:
+    llm = FakePlannerLLM("not json")
+
+    Planner(llm, system_prompt="Custom planner role prompt.").preview("change status")
+
+    assert llm.last_messages is not None
+    assert llm.last_messages[0].role == "system"
+    assert llm.last_messages[0].content == "Custom planner role prompt."
 
 
 def test_planner_falls_back_on_non_json() -> None:

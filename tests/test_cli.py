@@ -2,6 +2,7 @@ from pyagentcli.agent.plan_store import PlanStore
 from pyagentcli.agent.planner import PlanPreview, PlanRun, PlanRunStatus, PlanStep
 from pyagentcli.cli.main import (
     _review_plan_execution,
+    build_agent,
     compress_memory,
     delete_memory_line,
     enrich_goal,
@@ -29,6 +30,21 @@ def test_parse_execute_plan_flag() -> None:
 
     assert args.execute_plan is True
     assert args.goal == ["fix", "tests"]
+
+
+def test_build_agent_uses_executor_role_prompt(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    (tmp_path / "pyagent.toml").write_text(
+        """
+[agents.executor]
+system_prompt = "Executor role prompt from project config."
+""".strip(),
+        encoding="utf-8",
+    )
+
+    agent = build_agent(workspace=str(tmp_path), interactive=False, role="executor")
+
+    assert agent.system_prompt == "Executor role prompt from project config."
 
 
 def test_parse_memory_flags() -> None:

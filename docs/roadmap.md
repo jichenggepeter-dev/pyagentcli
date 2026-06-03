@@ -145,6 +145,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - Reviewer gate can downgrade a successful execution to failed when steps were skipped, failed, or cancelled
 - persisted agent handoffs for Planner, Executor, and Reviewer
 - Reviewer handoff recommendations for accept, retry, resume, or user decision
+- role-level model and prompt config for Planner, Executor, and Reviewer
 
 ## Not Yet Built
 
@@ -168,8 +169,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Model-backed Multi-Agent**
-   Split Planner, Executor, and Reviewer into separate model-backed role clients while preserving the persisted handoff contract.
+1. **Reviewer Retry Proposal**
+   Generate a read-only retry proposal from Reviewer results while preserving user approval for execution.
 
 2. **Advanced Browser tools**
    Add Playwright-backed screenshots, DOM inspection, console logs, and local UI interaction.

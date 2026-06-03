@@ -300,12 +300,13 @@ class PlanRun:
 
 
 class Planner:
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(self, llm: LLMClient, *, system_prompt: str = PLANNER_PROMPT) -> None:
         self.llm = llm
+        self.system_prompt = system_prompt
 
     def preview(self, goal: str) -> PlanPreview:
         response = self.llm.chat(
-            [Message.system(PLANNER_PROMPT), Message.user(goal)],
+            [Message.system(self.system_prompt), Message.user(goal)],
             tools=[],
         )
         content = response.content or ""

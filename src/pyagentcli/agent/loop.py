@@ -15,11 +15,13 @@ class AgentLoop:
         tools: ToolRegistry,
         tool_context_factory,
         max_steps: int,
+        system_prompt: str = SYSTEM_PROMPT,
     ) -> None:
         self.llm = llm
         self.tools = tools
         self.tool_context_factory = tool_context_factory
         self.max_steps = max_steps
+        self.system_prompt = system_prompt
 
     def run(self, goal: str) -> str:
         context = self.tool_context_factory(goal=goal, step=0)
@@ -27,7 +29,7 @@ class AgentLoop:
             user_goal=goal,
             workspace_root=context.workspace_root,
             max_steps=self.max_steps,
-            messages=[Message.system(SYSTEM_PROMPT), Message.user(goal)],
+            messages=[Message.system(self.system_prompt), Message.user(goal)],
         )
 
         while state.step_count < state.max_steps:
@@ -44,4 +46,3 @@ class AgentLoop:
                 state.messages.append(Message.tool(call.id, result.to_message_content()))
 
         return f"任务达到最大步数 {state.max_steps}，已停止。"
-

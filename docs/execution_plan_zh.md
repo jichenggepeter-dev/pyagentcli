@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.5：Model-backed Multi-Agent
+- Phase 3.6：Reviewer Retry Proposal
 
 ## Roadmap 总览
 
@@ -491,6 +491,7 @@ enabled = true
 状态：
 
 - 已完成 role contract、Reviewer gate、Planner/Executor/Reviewer 持久化 handoff、Reviewer 下一步建议。
+- 已完成角色级 model/prompt 配置入口：Planner 和 Executor 已接入，Reviewer 配置已保留给 proposal 生成。
 
 目标：
 
@@ -636,27 +637,27 @@ User Goal
 
 名称：
 
-- Model-backed Multi-Agent
+- Reviewer Retry Proposal
 
 目标：
 
-- 在已经持久化 handoff 的基础上，把 Planner、Executor、Reviewer 拆成更明确的模型角色配置。
+- 在 Reviewer gate 之后生成只读 retry proposal，帮助用户决定 retry、resume、skip 或 accept。
 
 第一小步：
 
-- 为 Planner / Executor / Reviewer 增加可配置的 role prompt 和模型参数入口。
+- 基于 failed/skipped/cancelled step 生成结构化 retry proposal。
 
 第二小步：
 
-- 保持 handoff 数据契约不变，只替换角色内部的模型调用边界。
+- proposal 只写入 plan/review，不自动执行任何工具。
 
 第三小步：
 
-- 给 retry proposal 增加只读生成能力，但执行仍必须经过用户审批。
+- 将 proposal 纳入 eval 或 reviewer 测试，检查不越权。
 
 完成标准：
 
-- 三个角色可单独配置 prompt/model。
+- Reviewer proposal 可解释下一步。
 - handoff JSON 向后兼容。
 - retry proposal 不自动执行。
 - 全量测试通过。

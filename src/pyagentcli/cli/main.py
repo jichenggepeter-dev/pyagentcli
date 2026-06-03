@@ -5,7 +5,16 @@ import argparse
 from pyagentcli.agent.loop import AgentLoop
 from pyagentcli.agent.plan_executor import PlanExecutor
 from pyagentcli.agent.plan_store import PlanStore
-from pyagentcli.agent.planner import VALID_STEP_STATUSES, AgentHandoff, PlanPreview, PlanRun, PlanRunStatus, Planner
+from pyagentcli.agent.planner import (
+    PLANNER_PROMPT,
+    VALID_STEP_STATUSES,
+    AgentHandoff,
+    PlanPreview,
+    PlanRun,
+    PlanRunStatus,
+    Planner,
+)
+from pyagentcli.agent.prompts import SYSTEM_PROMPT
 from pyagentcli.agent.reviewer import Reviewer
 from pyagentcli.cli.repl import run_repl
 from pyagentcli.config import load_config
@@ -26,14 +35,15 @@ from pyagentcli.tools.base import ToolContext
 from pyagentcli.tools.registry import default_registry
 
 
-def build_agent(*, workspace: str | None = None, interactive: bool = True) -> AgentLoop:
+def build_agent(*, workspace: str | None = None, interactive: bool = True, role: str | None = None) -> AgentLoop:
     config = load_config(workspace=workspace, interactive=interactive)
     safety_policy = SafetyPolicy(config.workspace_root)
     approval_handler = ApprovalHandler(interactive=config.interactive)
     audit_logger = AuditLogger(config.workspace_root)
     tools = default_registry()
     register_configured_mcp_tools(tools, workspace_root=config.workspace_root, servers=config.mcp_servers)
-    llm = build_llm_client(config)
+    llm = build_llm_client(config, role=role)
+    role_prompt = config.role_config(role).system_prompt if role else None
 
     def context_factory(*, goal: str, step: int) -> ToolContext:
         return ToolContext(
@@ -50,6 +60,7 @@ def build_agent(*, workspace: str | None = None, interactive: bool = True) -> Ag
         tools=tools,
         tool_context_factory=context_factory,
         max_steps=config.max_steps,
+        system_prompt=role_prompt or SYSTEM_PROMPT,
     )
 
 
@@ -364,7 +375,11 @@ def run_agent_task(goal: str, *, workspace: str | None = None, interactive: bool
 
 def plan_task(goal: str, *, workspace: str | None = None) -> str:
     config = load_config(workspace=workspace, interactive=False)
-    planner = Planner(build_llm_client(config))
+    planner_config = config.role_config("planner")
+    planner = Planner(
+        build_llm_client(config, role="planner"),
+        system_prompt=planner_config.system_prompt or PLANNER_PROMPT,
+    )
     store = PlanStore(config.workspace_root)
     enriched_goal = inject_context_references(goal, config.workspace_root).enriched_goal
     plan = planner.preview(enriched_goal)
@@ -382,7 +397,11 @@ def plan_task(goal: str, *, workspace: str | None = None) -> str:
 
 def execute_planned_task(goal: str, *, workspace: str | None = None, interactive: bool = True) -> str:
     config = load_config(workspace=workspace, interactive=False)
-    planner = Planner(build_llm_client(config))
+    planner_config = config.role_config("planner")
+    planner = Planner(
+        build_llm_client(config, role="planner"),
+        system_prompt=planner_config.system_prompt or PLANNER_PROMPT,
+    )
     store = PlanStore(config.workspace_root)
     enriched_goal = inject_context_references(goal, config.workspace_root).enriched_goal
     plan = planner.preview(enriched_goal)
@@ -427,7 +446,7 @@ def execute_planned_task(goal: str, *, workspace: str | None = None, interactive
 
     executor = PlanExecutor(
         store=store,
-        agent_factory=lambda: build_agent(workspace=workspace, interactive=True),
+        agent_factory=lambda: build_agent(workspace=workspace, interactive=True, role="executor"),
         approval_handler=ApprovalHandler(interactive=True),
     )
     completed = executor.execute(planned_run)
@@ -502,7 +521,7 @@ def resume_plan(plan_id: str, *, workspace: str | None = None, interactive: bool
 
     executor = PlanExecutor(
         store=store,
-        agent_factory=lambda: build_agent(workspace=workspace, interactive=True),
+        agent_factory=lambda: build_agent(workspace=workspace, interactive=True, role="executor"),
         approval_handler=ApprovalHandler(interactive=True),
     )
     completed = executor.execute(run)
@@ -574,7 +593,7 @@ def retry_step(
 
     executor = PlanExecutor(
         store=store,
-        agent_factory=lambda: build_agent(workspace=workspace, interactive=True),
+        agent_factory=lambda: build_agent(workspace=workspace, interactive=True, role="executor"),
         approval_handler=ApprovalHandler(interactive=True),
     )
     completed = executor.execute(retry_run)
