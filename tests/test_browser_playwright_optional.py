@@ -86,3 +86,41 @@ def test_browser_screenshot_success_path_when_playwright_is_available(tmp_path: 
     screenshot = tmp_path / output
     assert screenshot.exists()
     assert screenshot.stat().st_size > 0
+
+
+def test_browser_interact_success_path_when_playwright_is_available(tmp_path: Path) -> None:
+    pytest.importorskip("playwright.sync_api")
+    page = tmp_path / "interact.html"
+    page.write_text(
+        """
+<html>
+  <head><title>Interact Fixture</title></head>
+  <body>
+    <input id="name" />
+    <button id="apply" onclick="document.querySelector('#status').textContent = 'Hello ' + document.querySelector('#name').value">Apply</button>
+    <p id="status">Waiting</p>
+  </body>
+</html>
+""".strip(),
+        encoding="utf-8",
+    )
+    registry = default_registry()
+    context = make_context(tmp_path)
+
+    result = registry.execute(
+        "browser_interact",
+        {
+            "url": "interact.html",
+            "actions": [
+                {"type": "type", "selector": "#name", "text": "PyAgent"},
+                {"type": "click", "selector": "#apply"},
+                {"type": "wait", "wait_ms": 100},
+            ],
+        },
+        context,
+    )
+
+    skip_if_browser_binary_missing(result.error)
+    assert result.ok
+    assert "Title: Interact Fixture" in result.content
+    assert "Hello PyAgent" in result.content

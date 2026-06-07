@@ -135,7 +135,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - read-only MCP tool support via `readOnlyHint`
 - non-read MCP tools classified as `NETWORK` or `CRITICAL` and denied by default policy
 
-### Browser v0.2
+### Browser v0.3
 
 - local page inspection tool
 - workspace-relative HTML and workspace `file://` support
@@ -148,6 +148,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - `--check-browser` optional capability diagnostic
 - `browser` optional dependency extra for Playwright
 - read-only `browser_query_selector` for simple tag, id, and class selectors
+- approved local `browser_interact` actions for click, type/fill, and wait
+- interaction results return the final title and normalized page text
 
 ### Multi-Agent v0.3
 
@@ -165,10 +167,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced Browser Tools
 
-- Playwright install/setup workflow
-- interactive local frontend flows
 - network logs
-- local frontend interaction flows
+- richer interaction assertions
 
 ### Advanced RAG
 
@@ -184,11 +184,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced Browser Interaction**
-   Add user-approved local click/type flows after selector query is stable.
-
-2. **Real Model Trace Capture**
+1. **Real Model Trace Capture**
    Capture and score real model tool-call traces behind explicit API configuration.
 
-3. **Reviewer Proposal Comparison Eval**
+2. **Reviewer Proposal Comparison Eval**
    Compare deterministic Reviewer proposals against optional model-backed suggestions.
+
+3. **Browser Network Logs**
+   Add local-only Playwright network request and response inspection.

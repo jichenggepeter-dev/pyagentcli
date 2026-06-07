@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.3：Advanced Browser Interaction
+- Phase 4.8：Real Model Trace Capture
 
 ## Roadmap 总览
 
@@ -638,31 +638,41 @@ User Goal
 
 名称：
 
-- Advanced Browser Interaction
+- Real Model Trace Capture
 
 目标：
 
-- 在已有 local-only 浏览器 inspection 和 selector query 基础上，增加受控的本地点击、输入、等待和页面状态验证能力。
+- 在显式 API 配置下捕获真实模型运行 trace，并复用现有 trace eval 指标评估工具调用、安全违规和最终输出。
 
 第一小步：
 
-- 设计浏览器交互工具的安全边界：只允许 localhost / workspace file，默认只读，交互动作需要审批。
+- 设计真实模型 trace capture 开关，避免默认 eval 依赖外部 API。
 
 第二小步：
 
-- 增加最小 Playwright click/type/wait 工具，并保持 Playwright 未安装时的清晰降级。
+- 增加一个 opt-in eval case，使用真实 LLM client 运行受限任务并保存 trace。
 
 第三小步：
 
-- 增加本地 HTML fixture 测试，验证 selector、click、type 后页面状态可被读取。
+- 将真实 trace 写入 JSONL report，并和 deterministic trace eval 区分。
 
 完成标准：
 
-- 外部 URL 仍默认拒绝。
-- click/type 等交互工具需要审批或高风险标记。
-- 未安装 Playwright 时核心测试不失败。
-- 有 Playwright 时本地 fixture 可完成一次真实交互验证。
+- 默认 `pyagent --eval` 不调用真实 API。
+- 显式开启后才运行 real model trace eval。
+- trace 仍能计算 expected tools、forbidden tools、final contains。
+- 无 API key 时给出清晰跳过或禁用原因。
 - 全量测试通过。
+
+## 最近完成：Advanced Browser Interaction
+
+完成内容：
+
+- 新增 `browser_interact` 工具，支持 click、type/fill、wait。
+- 工具保持 local-only URL 边界，只允许 workspace file 和 localhost。
+- `browser_interact` 标记为 `EXECUTE` 风险，必须走审批链路。
+- 未安装 Playwright 时清晰降级，不影响核心测试。
+- 可选 Playwright 测试覆盖本地 HTML 输入、点击和状态读取。
 
 ## 最近完成：Model-backed Reviewer Proposal
 

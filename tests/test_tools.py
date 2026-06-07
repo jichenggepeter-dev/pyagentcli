@@ -194,6 +194,7 @@ def test_default_registry_exposes_edit_file_schema() -> None:
     assert "browser_query_selector" in tool_names
     assert "browser_console_logs" in tool_names
     assert "browser_screenshot" in tool_names
+    assert "browser_interact" in tool_names
 
 
 def test_inspect_page_reads_workspace_html_file(tmp_path: Path) -> None:
@@ -371,6 +372,57 @@ def test_browser_screenshot_restricts_output_path(tmp_path: Path) -> None:
         "Screenshot output_path must be under .pyagent/browser/" in (result.error or "")
         or "Playwright is not installed" in (result.error or "")
     )
+
+
+def test_browser_interact_rejects_external_url(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute(
+        "browser_interact",
+        {"url": "https://example.com", "actions": [{"type": "click", "selector": "#save"}]},
+        context,
+    )
+
+    assert not result.ok
+    assert "Only local browser URLs are allowed" in (result.error or "")
+
+
+def test_browser_interact_requires_approval(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text("<button id='save'>Save</button>", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, DenyAll())
+
+    result = registry.execute(
+        "browser_interact",
+        {"url": "index.html", "actions": [{"type": "click", "selector": "#save"}]},
+        context,
+    )
+
+    assert not result.ok
+    assert "denied in test" in (result.error or "")
+
+
+def test_browser_interact_gracefully_reports_missing_playwright(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text("<button id='save'>Save</button>", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute(
+        "browser_interact",
+        {"url": "index.html", "actions": [{"type": "click", "selector": "#save"}]},
+        context,
+    )
+
+    if not result.ok:
+        assert (
+            "Playwright is not installed" in (result.error or "")
+            or "Could not run browser interaction" in (result.error or "")
+        )
+    else:
+        assert "Actions: 1" in result.content
 
 
 def test_search_text_finds_matches(tmp_path: Path) -> None:

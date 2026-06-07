@@ -1,4 +1,4 @@
-# Browser v0.2
+# Browser v0.3
 
 PyAgentCLI includes a first local page inspection tool:
 
@@ -8,6 +8,7 @@ browser_dom_snapshot(url, max_chars=2000)
 browser_query_selector(url, selector, max_results=20)
 browser_console_logs(url, wait_ms=500)
 browser_screenshot(url, output_path=".pyagent/browser/screenshot.png")
+browser_interact(url, actions, max_chars=2000)
 ```
 
 This is a deliberately local-first browser slice. It lets the agent inspect local HTML pages and localhost web apps without opening arbitrary external websites.
@@ -55,7 +56,15 @@ It skips `script`, `style`, and `noscript` content.
 
 Complex CSS selectors are intentionally rejected in this static parser slice.
 
-`browser_console_logs` and `browser_screenshot` are optional Playwright-backed tools. If Playwright is not installed, they return a clear failure explaining that optional browser dependencies are missing.
+`browser_console_logs`, `browser_screenshot`, and `browser_interact` are optional Playwright-backed tools. If Playwright is not installed, they return a clear failure explaining that optional browser dependencies are missing.
+
+`browser_interact` supports approved local interactions:
+
+- `click` with a selector
+- `type` or `fill` with a selector and text
+- `wait` with `wait_ms`
+
+It is classified as `EXECUTE` risk, so it goes through the same approval path as other side-effecting tools. It returns the resulting title and normalized body text after all actions run.
 
 Example:
 
@@ -69,11 +78,12 @@ Hello PyAgent Status READY
 
 ## Optional Playwright Support
 
-Browser v0.2 keeps Playwright optional:
+Browser v0.3 keeps Playwright optional:
 
 - no browser dependency is required for the core CLI
 - DOM snapshots work without Playwright for static local HTML
 - console logs and screenshots require Playwright when available
+- click/type/wait interactions require Playwright and approval
 - screenshot output is restricted to `.pyagent/browser/`
 
 Check local browser capability status:
@@ -101,9 +111,8 @@ Those tests are skipped when the Playwright Python package is missing. If the pa
 
 ## Non-Goals
 
-Browser v0.2 does not yet include:
+Browser v0.3 does not yet include:
 
-- clicking or typing
 - network logs
 - complex CSS selector support
 - external website browsing

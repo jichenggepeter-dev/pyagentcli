@@ -313,6 +313,101 @@ class BrowserScreenshotTool:
         )
 
 
+class BrowserInteractTool:
+    name = "browser_interact"
+    description = "Run approved click, type, or wait actions on a local page and return the resulting text snapshot."
+    risk_level = RiskLevel.EXECUTE
+
+    def schema(self) -> dict[str, Any]:
+        return function_schema(
+            self.name,
+            self.description,
+            {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "A file://, workspace-relative path, localhost, 127.0.0.1, or ::1 URL.",
+                    },
+                    "actions": {
+                        "type": "array",
+                        "description": "Ordered local browser actions. Supported types: click, type, fill, wait.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {"type": "string"},
+                                "selector": {"type": "string"},
+                                "text": {"type": "string"},
+                                "wait_ms": {"type": "integer"},
+                            },
+                            "required": ["type"],
+                        },
+                    },
+                    "max_chars": {
+                        "type": "integer",
+                        "description": "Maximum final text snapshot characters. Defaults to 2000.",
+                    },
+                },
+                "required": ["url", "actions"],
+            },
+        )
+
+    def preview(self, args: dict[str, Any], context: ToolContext) -> str | None:
+        actions = args.get("actions") if isinstance(args.get("actions"), list) else []
+        lines = ["Browser interaction preview:"]
+        lines.append(f"- URL: {args.get('url')}")
+        lines.append(f"- Actions: {len(actions)}")
+        for index, action in enumerate(actions[:10], start=1):
+            if isinstance(action, dict):
+                action_type = str(action.get("type") or "")
+                selector = str(action.get("selector") or "")
+                lines.append(f"  {index}. {action_type} {selector}".rstrip())
+        return "\n".join(lines)
+
+    def run(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
+        raw_url = args.get("url")
+        if not isinstance(raw_url, str) or not raw_url.strip():
+            return ToolResult.failure("Missing required non-empty string argument: url")
+        raw_actions = args.get("actions")
+        if not isinstance(raw_actions, list) or not raw_actions:
+            return ToolResult.failure("Missing required non-empty array argument: actions")
+
+        prepared_url = _prepare_browser_target(raw_url.strip(), context)
+        if isinstance(prepared_url, ToolResult):
+            return prepared_url
+        actions = _parse_browser_actions(raw_actions)
+        if isinstance(actions, ToolResult):
+            return actions
+        playwright = _load_playwright()
+        if isinstance(playwright, ToolResult):
+            return playwright
+
+        sync_playwright, playwright_error = playwright
+        max_chars = _coerce_max_chars(args.get("max_chars"))
+        try:
+            with sync_playwright() as manager:
+                browser = manager.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(prepared_url, wait_until="load", timeout=10_000)
+                for action in actions:
+                    _apply_browser_action(page, action)
+                title = page.title()
+                text = _normalize_text(page.locator("body").inner_text(timeout=5_000))
+                if len(text) > max_chars:
+                    text = text[: max_chars - 15].rstrip() + "\n... <truncated>"
+                browser.close()
+        except playwright_error as exc:
+            return ToolResult.failure(f"Could not run browser interaction: {exc}", exception_type=type(exc).__name__)
+
+        return ToolResult.success(
+            f"URL: {prepared_url}\nTitle: {title or '<untitled>'}\nActions: {len(actions)}\n\nText:\n{text or '<no text>'}",
+            url=prepared_url,
+            title=title,
+            actions=len(actions),
+            text_chars=len(text),
+        )
+
+
 class _HTMLSnapshot:
     def __init__(
         self,
@@ -349,6 +444,14 @@ class _ElementMatch:
         if self.classes:
             identity += "." + ".".join(self.classes)
         return f"{identity}: {self.text or '<no text>'}"
+
+
+@dataclass(frozen=True)
+class _BrowserAction:
+    type: str
+    selector: str | None = None
+    text: str | None = None
+    wait_ms: int = 0
 
 
 class _SnapshotParser(HTMLParser):
@@ -579,6 +682,47 @@ def _query_html(html: str, selector: _SimpleSelector, *, max_results: int) -> li
     parser = _QueryParser(selector)
     parser.feed(html)
     return parser.matches[:max_results]
+
+
+def _parse_browser_actions(raw_actions: list[Any]) -> list[_BrowserAction] | ToolResult:
+    if len(raw_actions) > 20:
+        return ToolResult.failure("browser_interact supports at most 20 actions per call.")
+
+    actions: list[_BrowserAction] = []
+    for index, raw_action in enumerate(raw_actions, start=1):
+        if not isinstance(raw_action, dict):
+            return ToolResult.failure(f"Action {index} must be an object.")
+        action_type = str(raw_action.get("type") or "").strip().lower()
+        if action_type not in {"click", "type", "fill", "wait"}:
+            return ToolResult.failure(f"Action {index} has unsupported type: {action_type or '<missing>'}")
+        if action_type in {"click", "type", "fill"}:
+            selector = raw_action.get("selector")
+            if not isinstance(selector, str) or not selector.strip():
+                return ToolResult.failure(f"Action {index} requires a non-empty selector.")
+            text = raw_action.get("text")
+            if action_type in {"type", "fill"} and not isinstance(text, str):
+                return ToolResult.failure(f"Action {index} requires string text.")
+            actions.append(
+                _BrowserAction(
+                    type=action_type,
+                    selector=selector.strip(),
+                    text=text if isinstance(text, str) else None,
+                )
+            )
+            continue
+        actions.append(_BrowserAction(type="wait", wait_ms=_coerce_wait_ms(raw_action.get("wait_ms"))))
+    return actions
+
+
+def _apply_browser_action(page: Any, action: _BrowserAction) -> None:
+    if action.type == "click" and action.selector is not None:
+        page.click(action.selector, timeout=5_000)
+    elif action.type in {"type", "fill"} and action.selector is not None:
+        page.fill(action.selector, action.text or "", timeout=5_000)
+    elif action.type == "wait":
+        page.wait_for_timeout(action.wait_ms)
+    else:
+        raise ValueError(f"Unsupported browser action: {action.type}")
 
 
 def _normalize_text(value: str) -> str:
