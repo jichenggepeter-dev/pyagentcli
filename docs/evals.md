@@ -64,6 +64,8 @@ The first trace eval checks:
 
 This creates the scoring contract for future real Agent runs. Once the Agent loop can emit captured traces, those traces can be scored with the same metrics.
 
+PyAgentCLI also includes a local fallback Agent trace eval. It runs the real `AgentLoop`, captures tool calls and observations, and scores the resulting trace without requiring an API key.
+
 ## Usage
 
 ```bash
@@ -93,7 +95,7 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Add Agent loop trace capture.
-2. Add expected diff scoring, not only expected text containment.
-3. Feed Reviewer output into eval scoring.
+1. Add expected diff scoring, not only expected text containment.
+2. Feed Reviewer output into eval scoring.
+3. Add real model trace capture behind explicit API configuration.
 4. Add per-model and per-retriever comparison reports.

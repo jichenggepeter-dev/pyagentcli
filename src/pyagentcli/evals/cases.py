@@ -167,6 +167,19 @@ BUILTIN_TRACE_EVAL_CASES = [
 ]
 
 
+BUILTIN_AGENT_TRACE_CASES = [
+    CodingTaskCase(
+        case_id="agent_trace.list_workspace",
+        name="Agent loop captures list_files trace",
+        goal="Summarize this project workspace.",
+        initial_files={"README.md": "# Demo\n"},
+        expected_files=(),
+        expected_tools=("list_files",),
+        forbidden_tools=("run_shell",),
+    )
+]
+
+
 def workspace_for_case(root: Path, case: EvalCase) -> Path:
     safe_id = case.case_id.replace("/", "_").replace(".", "_")
     return root / safe_id

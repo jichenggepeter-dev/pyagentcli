@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pyagentcli.agent.prompts import SYSTEM_PROMPT
 from pyagentcli.agent.state import AgentState
+from pyagentcli.agent.trace import AgentRunResult, AgentTrace, TraceEvent
 from pyagentcli.llm.base import LLMClient, Message
 from pyagentcli.tools.base import ToolContext
 from pyagentcli.tools.registry import ToolRegistry
@@ -24,6 +25,10 @@ class AgentLoop:
         self.system_prompt = system_prompt
 
     def run(self, goal: str) -> str:
+        return self.run_with_trace(goal).output
+
+    def run_with_trace(self, goal: str) -> AgentRunResult:
+        trace_events: list[TraceEvent] = [TraceEvent(role="user", content=goal)]
         context = self.tool_context_factory(goal=goal, step=0)
         state = AgentState(
             user_goal=goal,
@@ -38,11 +43,30 @@ class AgentLoop:
             state.messages.append(response.assistant_message())
 
             if not response.tool_calls:
-                return response.content or ""
+                output = response.content or ""
+                trace_events.append(TraceEvent(role="assistant", final=output))
+                return AgentRunResult(output=output, trace=AgentTrace(goal=goal, events=trace_events))
 
             for call in response.tool_calls:
+                trace_events.append(
+                    TraceEvent(
+                        role="assistant",
+                        tool_call={"name": call.name, "arguments": call.arguments},
+                    )
+                )
                 tool_context: ToolContext = self.tool_context_factory(goal=goal, step=state.step_count)
                 result = self.tools.execute(call.name, call.arguments, tool_context)
-                state.messages.append(Message.tool(call.id, result.to_message_content()))
+                observation = result.to_message_content()
+                trace_events.append(
+                    TraceEvent(
+                        role="tool",
+                        tool_name=call.name,
+                        ok=result.ok,
+                        observation=observation,
+                    )
+                )
+                state.messages.append(Message.tool(call.id, observation))
 
-        return f"任务达到最大步数 {state.max_steps}，已停止。"
+        output = f"任务达到最大步数 {state.max_steps}，已停止。"
+        trace_events.append(TraceEvent(role="assistant", final=output))
+        return AgentRunResult(output=output, trace=AgentTrace(goal=goal, events=trace_events))

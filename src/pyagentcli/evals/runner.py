@@ -10,6 +10,7 @@ from typing import Callable
 
 from pyagentcli.context_injection import inject_context_references
 from pyagentcli.evals.cases import (
+    BUILTIN_AGENT_TRACE_CASES,
     BUILTIN_CASES,
     BUILTIN_CODING_TASKS,
     BUILTIN_RAG_RETRIEVAL_CASES,
@@ -21,6 +22,8 @@ from pyagentcli.evals.cases import (
     workspace_for_case,
 )
 from pyagentcli.evals.metrics import CodingTaskSummary, EvalSummary, RagRetrievalSummary, TraceEvalSummary
+from pyagentcli.agent.loop import AgentLoop
+from pyagentcli.llm.openai_compatible import LocalFallbackClient
 from pyagentcli.memory.project_memory import ProjectMemory
 from pyagentcli.rag.indexer import CodeIndexer
 from pyagentcli.safety.approval import ApprovalResult
@@ -115,6 +118,7 @@ class EvalRunner:
             coding_results = [self._run_coding_task(case, eval_root) for case in BUILTIN_CODING_TASKS]
             rag_results = [self._run_rag_retrieval(case, eval_root) for case in BUILTIN_RAG_RETRIEVAL_CASES]
             trace_results = [self._run_trace_eval(case) for case in BUILTIN_TRACE_EVAL_CASES]
+            trace_results.extend(self._run_agent_trace_case(case, eval_root) for case in BUILTIN_AGENT_TRACE_CASES)
 
         summary = EvalSummary(
             total=len(results),
@@ -278,44 +282,56 @@ class EvalRunner:
 
     def _run_trace_eval(self, case: TraceEvalCase) -> TraceEvalResult:
         started = perf_counter()
-        used_tools: list[str] = []
-        safety_violations = 0
-        final_output = ""
-        failures: list[str] = []
-
-        for event in case.trace:
-            tool_call = event.get("tool_call") if isinstance(event.get("tool_call"), dict) else None
-            if tool_call is not None:
-                tool_name = str(tool_call.get("name") or "")
-                if tool_name:
-                    used_tools.append(tool_name)
-                    if tool_name in case.forbidden_tools:
-                        safety_violations += 1
-            if "final" in event:
-                final_output = str(event.get("final") or "")
-
-        matched_tool_calls = _count_matched_tools(case.expected_tools, used_tools)
-        if matched_tool_calls < len(case.expected_tools):
-            failures.append("Expected trace tool sequence was not fully observed.")
-        if safety_violations:
-            failures.append(f"Observed forbidden tools: {safety_violations}")
-        if case.expected_final_contains and case.expected_final_contains not in final_output:
-            failures.append("Final output did not contain expected text.")
-
-        passed = not failures
-        return TraceEvalResult(
+        result = _score_trace(
             case_id=case.case_id,
             name=case.name,
-            passed=passed,
-            message="passed" if passed else "; ".join(failures),
-            expected_tools=list(case.expected_tools),
-            used_tools=used_tools,
-            matched_tool_calls=matched_tool_calls,
-            safety_violations=safety_violations,
-            final_output=final_output,
-            duration_ms=int((perf_counter() - started) * 1000),
+            trace=case.trace,
+            expected_tools=case.expected_tools,
+            forbidden_tools=case.forbidden_tools,
+            expected_final_contains=case.expected_final_contains,
+            started=started,
         )
+        return result
 
+    def _run_agent_trace_case(self, case: CodingTaskCase, eval_root: Path) -> TraceEvalResult:
+        started = perf_counter()
+        workspace = workspace_for_case(eval_root, EvalCase(case.case_id, case.name, case.goal))
+        workspace.mkdir(parents=True, exist_ok=True)
+        for relative_path, content in case.initial_files.items():
+            target = workspace / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+        safety_policy = SafetyPolicy(workspace)
+        approval_handler = ApproveAll()
+        audit_logger = AuditLogger(workspace)
+
+        def context_factory(*, goal: str, step: int) -> ToolContext:
+            return ToolContext(
+                workspace_root=workspace,
+                safety_policy=safety_policy,
+                approval_handler=approval_handler,
+                audit_logger=audit_logger,
+                goal=goal,
+                step=step,
+            )
+
+        agent = AgentLoop(
+            llm=LocalFallbackClient(),
+            tools=default_registry(),
+            tool_context_factory=context_factory,
+            max_steps=3,
+        )
+        run = agent.run_with_trace(case.goal)
+        return _score_trace(
+            case_id=case.case_id,
+            name=case.name,
+            trace=run.trace.to_eval_trace(),
+            expected_tools=case.expected_tools,
+            forbidden_tools=case.forbidden_tools,
+            expected_final_contains="README.md",
+            started=started,
+        )
     def _write_report(
         self,
         results: list[EvalResult],
@@ -339,6 +355,55 @@ class EvalRunner:
                 payload = {"kind": "trace_eval", **asdict(result)}
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
         return report_path
+
+
+def _score_trace(
+    *,
+    case_id: str,
+    name: str,
+    trace: tuple[dict, ...],
+    expected_tools: tuple[str, ...],
+    forbidden_tools: tuple[str, ...],
+    expected_final_contains: str | None,
+    started: float,
+) -> TraceEvalResult:
+    used_tools: list[str] = []
+    safety_violations = 0
+    final_output = ""
+    failures: list[str] = []
+
+    for event in trace:
+        tool_call = event.get("tool_call") if isinstance(event.get("tool_call"), dict) else None
+        if tool_call is not None:
+            tool_name = str(tool_call.get("name") or "")
+            if tool_name:
+                used_tools.append(tool_name)
+                if tool_name in forbidden_tools:
+                    safety_violations += 1
+        if "final" in event:
+            final_output = str(event.get("final") or "")
+
+    matched_tool_calls = _count_matched_tools(expected_tools, used_tools)
+    if matched_tool_calls < len(expected_tools):
+        failures.append("Expected trace tool sequence was not fully observed.")
+    if safety_violations:
+        failures.append(f"Observed forbidden tools: {safety_violations}")
+    if expected_final_contains and expected_final_contains not in final_output:
+        failures.append("Final output did not contain expected text.")
+
+    passed = not failures
+    return TraceEvalResult(
+        case_id=case_id,
+        name=name,
+        passed=passed,
+        message="passed" if passed else "; ".join(failures),
+        expected_tools=list(expected_tools),
+        used_tools=used_tools,
+        matched_tool_calls=matched_tool_calls,
+        safety_violations=safety_violations,
+        final_output=final_output,
+        duration_ms=int((perf_counter() - started) * 1000),
+    )
 
 
 def _case_tools_registry(workspace: Path) -> None:

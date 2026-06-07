@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.4：Agent Trace Capture
+- Phase 4.5：Expected Diff Scoring
 
 ## Roadmap 总览
 
@@ -638,27 +638,27 @@ User Goal
 
 名称：
 
-- Agent Trace Capture
+- Expected Diff Scoring
 
 目标：
 
-- 让真实 AgentLoop 可以产出 goal、tool calls、observations、final output 的可审计 trace。
+- 让 coding/trace eval 不只看目标文本是否存在，也能评分文件 diff 是否符合预期。
 
 第一小步：
 
-- 在 AgentLoop 中增加可选 trace collector，不影响普通 run 返回值。
+- 为 eval case 增加 expected diff contract。
 
 第二小步：
 
-- 用 fallback 或 fake LLM 跑一个本地任务，保存 captured trace。
+- 对 README TODO -> READY 这类任务生成并比较 diff。
 
 第三小步：
 
-- 将 captured trace 交给现有 trace eval scoring。
+- 将 diff 评分结果写入 JSONL report。
 
 完成标准：
 
-- AgentLoop trace 可审计、可复现。
-- 普通 Agent run 行为不变。
+- eval 能报告 expected diff 是否命中。
+- trace/coding task report 包含 diff 评分字段。
 - 不需要真实 API key 时仍有 fallback 测试路径。
 - 全量测试通过。
