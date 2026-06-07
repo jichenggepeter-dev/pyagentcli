@@ -4,6 +4,123 @@
 
 注意：本文不是对 PaiCLI 原文的复制，而是基于 PyAgentCLI 当前实现整理的原创求职材料。
 
+## 00. 按学习路线组织 PyAgentCLI
+
+PaiCLI 学习路线的核心结构可以抽象成五步：
+
+```text
+先跑起来
+  -> 写到简历
+  -> 围绕简历深挖源码和面试题
+  -> 动手 debug / 改 bug / 加功能
+  -> 整理成自己的知识库
+```
+
+PyAgentCLI 也按这套结构来沉淀。
+
+### 0.1 先把 PyAgentCLI 跑起来
+
+你需要先证明项目真的能在本地跑，而不是只停留在“我看懂了”的层面。
+
+推荐命令：
+
+```bash
+python -m pip install -e ".[dev]"
+pyagent --help
+pyagent --eval
+pyagent --plan "fix failing tests"
+pyagent --check-browser
+```
+
+跑通后你应该能看到：
+
+- CLI 帮助信息正常输出。
+- `--eval` 输出 platform eval、coding task eval、RAG retrieval eval、trace eval。
+- `--plan` 能生成计划但不执行。
+- `--check-browser` 能说明 Playwright 是否可用。
+
+这一步对应的学习目标：
+
+- 理解 CLI entry point。
+- 理解项目如何从命令行进入 `main.py`。
+- 理解无 API key 时的 local fallback。
+- 理解测试和 eval 的区别。
+
+### 0.2 再把项目写到简历上
+
+跑通后不要急着从头到尾读源码。先决定简历写什么。
+
+原因很简单：
+
+> 简历写什么，面试官就大概率问什么；你也就知道应该重点深挖哪些模块。
+
+PyAgentCLI 最适合写进简历的模块，按优先级是：
+
+1. ReAct / Tool Calling Agent Loop
+2. Tool Registry / HITL / Safety / Audit Log
+3. RAG 代码检索 / AST symbol / import graph
+4. Memory / Context Injection / Compression
+5. Plan-and-Execute / Reviewer Gate / Retry Proposal
+6. Multi-Agent handoff
+7. MCP Client / Tool Adapter
+8. Skill System
+9. Browser Tools
+10. Eval Harness / Trace Eval
+
+每个模块都要能继续往下展开：
+
+- 入口文件在哪里？
+- 核心数据结构是什么？
+- 安全边界是什么？
+- 怎么测试？
+- 遇到过什么坑？
+
+### 0.3 围绕简历深挖源码和面试题
+
+不要漫无目的地通读所有文件。推荐按简历模块读源码：
+
+| 简历模块 | 重点源码 | 面试方向 |
+| --- | --- | --- |
+| ReAct Loop | `agent/loop.py`, `llm/base.py` | ReAct、Function Calling、模型是否执行代码 |
+| Tool Registry | `tools/registry.py`, `tools/base.py` | 工具 schema、工具分发、失败恢复 |
+| Safety | `safety/policy.py`, `safety/approval.py` | HITL、路径围栏、命令黑名单 |
+| RAG | `rag/indexer.py`, `rag/chunker.py`, `context_injection.py` | FTS、AST chunk、向量检索、stale index |
+| Memory | `memory/project_memory.py` | Memory vs Context、压缩、删除、过期 |
+| Plan | `agent/planner.py`, `agent/plan_store.py` | Plan-and-Execute、持久化、重试 |
+| Multi-Agent | `agent/contracts.py`, `agent/plan_executor.py`, `agent/reviewer.py` | Planner / Executor / Reviewer 分工 |
+| MCP | `mcp/client.py`, `mcp/adapter.py` | MCP 协议、工具生态、安全映射 |
+| Skill | `skills/loader.py` | Skill vs Tool、prompt guidance |
+| Browser | `tools/browser.py` | local-only 浏览器 inspection |
+| Eval | `evals/runner.py`, `evals/cases.py` | Agent 效果评估、trace、safety violation |
+
+### 0.4 动手 debug、改 bug、加功能
+
+我们开发 PyAgentCLI 的过程里已经做过很多“真实项目动作”，这些都可以反过来成为面试素材：
+
+- 加工具：从 `inspect_page` 扩展到 `browser_dom_snapshot`、`browser_query_selector`。
+- 加安全：限制外部 URL、限制 screenshot 输出到 `.pyagent/browser/`。
+- 加配置：新增 role-level model / prompt config。
+- 加评估：从 deterministic eval 扩展到 trace eval。
+- 修测试：`pytest.importorskip` 放在模块级会导致单文件运行 exit code 5，于是改成函数内 skip。
+- 处理权限：普通 sandbox 不能联网 push，后续改用用户手动 push 或授权通道。
+- 处理工具限制：Computer Use 能看 Safari，但 Terminal 被安全策略禁止操作。
+
+这些不是“杂事”，而是真实工程能力：
+
+> 能发现约束、解释约束、在约束内找到稳定实现方式。
+
+### 0.5 整理成自己的知识库
+
+最后一步是输出。建议把 PyAgentCLI 学习资料沉淀成几类：
+
+- 简历材料：项目描述、技术栈、核心职责、bullet。
+- 面试题库：按 ReAct、Tool、RAG、Memory、MCP、Eval 分类。
+- 架构图：Agent Loop、Tool Calling、Plan-and-Execute、Multi-Agent、MCP。
+- 踩坑记录：环境、权限、测试、模型、浏览器、GitHub push。
+- 复盘文章：每个模块写一篇“为什么做、怎么做、怎么测”。
+
+这份文档就是 PyAgentCLI 的第一版学习知识库。
+
 ## 01. 项目定位
 
 PyAgentCLI 可以定位为：
@@ -538,7 +655,239 @@ PyAgentCLI 可以定位为：
    - 一个任务从输入到工具调用再到 review 的完整链路
    - 一次失败 step 如何被 Reviewer 拦截并生成 retry proposal
 
-## 08. 参考来源
+## 08. 开发过程问题复盘
+
+这一节专门记录我们开发 PyAgentCLI 过程中遇到的问题，以及这些问题如何反补学习材料。
+
+### 8.1 sandbox 网络权限导致无法 push
+
+现象：
+
+- 普通 `git push` 在 sandbox 中无法解析 GitHub。
+- 早期可以用授权网络方式推送。
+- 后来权限配置变化，`sandbox_approval` 被设为自动拒绝，无法再申请联网 push。
+
+解决方式：
+
+- 本地继续 commit。
+- 用户手动在本机 Terminal 执行 `git push`。
+- 文档和最终回复中明确 `main...origin/main [ahead N]` 状态。
+
+面试可讲点：
+
+> 本地 agent 工具必须尊重运行环境权限。不能为了完成任务绕过 sandbox；正确做法是识别权限边界，保持本地状态可恢复，并让用户完成需要外部授权的动作。
+
+### 8.2 Computer Use 不能操作 Terminal
+
+现象：
+
+- 用户安装了 Computer Use 插件。
+- 工具能读取 Safari 状态。
+- 但操作 Terminal 时返回安全限制：不允许使用 `com.apple.Terminal`。
+
+解决方式：
+
+- 不强行绕过。
+- 改为让用户手动执行 `git push`。
+- 对 Safari 页面只做结构提炼，不复制全文。
+
+面试可讲点：
+
+> Desktop automation 也要有权限边界。Agent 能看见不代表能操作，能操作不代表应该操作。
+
+### 8.3 Playwright 可选依赖不能影响核心测试
+
+现象：
+
+- Browser console logs 和 screenshot 需要 Playwright。
+- 但项目不能强制所有用户安装大体积浏览器依赖。
+- 模块级 `pytest.importorskip` 会导致单独运行测试文件时 exit code 5。
+
+解决方式：
+
+- 把 Playwright 放进 optional extra：`.[browser]`。
+- 新增 `pyagent --check-browser` 做能力检测。
+- 可选测试里把 `importorskip` 放到测试函数内。
+- 没装 Playwright 时 skip，不影响核心套件。
+
+面试可讲点：
+
+> 可选能力要做成 graceful degradation。核心 CLI 不依赖浏览器，浏览器成功路径可单独验证。
+
+### 8.4 Browser 工具默认只允许 local
+
+现象：
+
+- 浏览器工具很容易被误用成外部网页抓取工具。
+- Coding Agent 的主要需求是本地 HTML / localhost app 调试。
+
+解决方式：
+
+- `inspect_page`、`browser_dom_snapshot`、`browser_query_selector` 都默认拒绝外部 URL。
+- 只允许 workspace file、workspace `file://`、localhost、127.0.0.1、::1。
+- screenshot 输出限制在 `.pyagent/browser/`。
+
+面试可讲点：
+
+> Browser tool 的第一优先级不是能力最大化，而是安全和任务边界清晰。先做只读 inspection，再考虑交互。
+
+### 8.5 Reviewer gate 防止假成功
+
+现象：
+
+- Plan 执行过程中可能出现某些 step skipped / failed。
+- 如果只看最终执行函数返回，容易把计划误标为 success。
+
+解决方式：
+
+- Reviewer 检查所有 step status。
+- failed / skipped / cancelled 会 block success。
+- 成功 plan 可被 Reviewer 降级为 failed。
+- 生成 retry proposal，但不自动执行。
+
+面试可讲点：
+
+> Agent 不应该只靠“最终回答”判断成功。需要引入状态机、复核器和可审计的 gate。
+
+### 8.6 Retry Proposal 只生成建议，不自动执行
+
+现象：
+
+- Agent 如果自动 retry，可能绕过用户审批。
+- failed、skipped、cancelled 的处理方式不同。
+
+解决方式：
+
+- failed -> `retry_step`
+- skipped -> `user_decision`
+- cancelled -> `resume_plan`
+- proposal 写入 review 和 handoff，但不调用工具。
+
+面试可讲点：
+
+> 自动化建议和自动化执行要分开。尤其是 coding agent，建议可以自动生成，但执行必须保留审批边界。
+
+### 8.7 RAG index stale 问题
+
+现象：
+
+- 用户修改文件后，SQLite FTS index 可能过期。
+- 如果 Agent 继续相信旧索引，就可能基于错误上下文行动。
+
+解决方式：
+
+- `CodeIndexer.stale_paths()` 检查索引新鲜度。
+- plan / execute / retry 前提示 stale warning。
+- 不自动重建索引，让检索上下文变化保持显式。
+
+面试可讲点：
+
+> RAG 的问题不只是召回率，还包括上下文新鲜度和可审计性。
+
+### 8.8 Memory 需要可审查和可删除
+
+现象：
+
+- 长期记忆如果不可见，会变成黑箱。
+- 错误记忆会污染后续任务。
+
+解决方式：
+
+- Project memory 存在 `.pyagent/memory/project.md`。
+- 提供 `--memory` 查看。
+- 提供 `--delete-memory-line` 删除。
+- 提供 `--stale-memory-days` 检查过期记忆。
+
+面试可讲点：
+
+> Memory 不是越多越好，而是要可控、可见、可删除。
+
+### 8.9 Skill 不能变成隐形权限
+
+现象：
+
+- Skill 很容易被误解为插件或工具。
+- 如果 Skill 能执行工具，就会绕开 Tool Registry 安全策略。
+
+解决方式：
+
+- Skill 只作为 prompt guidance。
+- 根据 trigger 选择并注入。
+- 明确不执行工具、不覆盖用户任务、不绕过审批。
+
+面试可讲点：
+
+> Skill 是知识和流程复用，不是能力授权。
+
+### 8.10 Trace Eval 从静态检查走向 Agent 行为评估
+
+现象：
+
+- 早期 eval 主要检查函数、工具注册和模拟 case。
+- 但 Agent 真正难评估的是行为链路：有没有调用正确工具、有没有 forbidden tool、最终结果是否包含关键信息。
+
+解决方式：
+
+- 在 Agent loop 中捕获 trace。
+- trace 包含 user、assistant tool_call、tool observation、final。
+- eval 根据 trace 计算 expected tools、forbidden tools、final contains。
+
+面试可讲点：
+
+> Agent eval 不能只看输出文本，要看行为轨迹。Trace 是连接可复现评估和真实 Agent 行为的关键。
+
+## 09. 模块化学习清单
+
+为了更像一份知识库，可以把 PyAgentCLI 拆成下面这些专题复习。
+
+### 专题 A：Agent 内核
+
+- `AgentLoop` 如何组织消息？
+- tool call 如何进入 ToolRegistry？
+- max steps 如何防止死循环？
+- trace 如何记录一次 Agent run？
+
+### 专题 B：工具和安全
+
+- tool schema 如何暴露给模型？
+- READ / WRITE / EXECUTE / NETWORK / CRITICAL 如何分级？
+- path guardrail 如何防止越界？
+- diff preview 为什么重要？
+
+### 专题 C：RAG 和上下文工程
+
+- FTS 和向量检索如何互补？
+- AST symbol chunk 解决什么问题？
+- `@symbol` 和 `search_index` 有什么区别？
+- stale index 为什么不能自动忽略？
+
+### 专题 D：Memory
+
+- project memory 和 session summary 如何分工？
+- memory 什么时候注入？
+- 为什么要支持删除和 stale 检查？
+
+### 专题 E：Plan / Multi-Agent / Reviewer
+
+- Planner 输出什么？
+- Executor 如何按 step 执行？
+- Reviewer gate 如何影响最终状态？
+- retry proposal 为什么不自动执行？
+
+### 专题 F：MCP / Skill / Browser
+
+- MCP 是工具协议，Skill 是 prompt guidance。
+- Browser tool 为什么 local-first？
+- Playwright optional 如何设计？
+
+### 专题 G：Eval
+
+- deterministic eval 检查什么？
+- coding task eval 检查什么？
+- trace eval 解决什么问题？
+- safety violation 如何衡量？
+
+## 10. 参考来源
 
 本文参考了 PaiCLI 学习路线和相关面试/简历文章的结构与主题方向，但所有项目表述均改写为 PyAgentCLI 的实现：
 
