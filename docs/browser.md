@@ -82,6 +82,14 @@ python -m playwright install chromium
 
 Install and browser binary setup are intentionally explicit, not automatic.
 
+Optional success-path verification:
+
+```bash
+.venv/bin/python -m pytest tests/test_browser_playwright_optional.py
+```
+
+Those tests are skipped when the Playwright Python package is missing. If the package is installed but Chromium has not been installed yet, they also skip with a browser-binary message.
+
 ## Non-Goals
 
 Browser v0.2 does not yet include:

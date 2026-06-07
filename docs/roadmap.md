@@ -176,8 +176,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Browser Success Path Verification**
-   Verify console logs and screenshots in an environment with Playwright installed.
+1. **Browser Selector Query**
+   Add read-only tag/id/class selector lookup for local pages.
 
 2. **Model-backed Eval v0.3**
    Replace simulated tool calls with captured Agent runs and expected diff scoring.

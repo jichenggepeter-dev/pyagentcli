@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.7：Browser Success Path Verification
+- Phase 2.8：Browser Selector Query
 
 ## Roadmap 总览
 
@@ -638,27 +638,26 @@ User Goal
 
 名称：
 
-- Browser Success Path Verification
+- Browser Selector Query
 
 目标：
 
-- 在有 Playwright 的环境中验证 console/screenshot 成功路径，并沉淀为可重复 smoke。
+- 增加只读 selector query，方便 Agent 检查局部 DOM，而不是只能看整页 snapshot。
 
 第一小步：
 
-- 准备本地 HTML fixture，包含 console log 和可截图内容。
+- 设计 selector query schema：url、selector、max_results。
 
 第二小步：
 
-- 在安装 Playwright 的环境运行浏览器工具成功路径。
+- 没有 Playwright 时可以用静态 HTML 解析做基础选择器支持，复杂 selector 再降级提示。
 
 第三小步：
 
-- 将成功路径加入可选测试或手动验证文档。
+- 保持 local-only URL guardrail，并补 selector 测试。
 
 完成标准：
 
-- 有 Playwright 时 console/screenshot 可真实执行。
-- 无 Playwright 时测试仍跳过或降级，不影响核心套件。
-- 外部 URL 不默认开放。
+- 能查询常见 tag/id/class selector。
+- 外部 URL 仍拒绝。
 - 全量测试通过。

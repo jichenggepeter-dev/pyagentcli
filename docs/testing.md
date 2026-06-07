@@ -76,3 +76,15 @@ PYTHONPATH=src python -m pyagentcli --check-model
 ```
 
 This verifies that the configured model can return tool calls.
+
+## Optional Browser Testing
+
+Browser console-log and screenshot success paths require optional Playwright support:
+
+```bash
+python -m pip install -e ".[browser]"
+python -m playwright install chromium
+.venv/bin/python -m pytest tests/test_browser_playwright_optional.py
+```
+
+The optional browser tests skip when Playwright or Chromium is unavailable, so the core suite stays dependency-light.
