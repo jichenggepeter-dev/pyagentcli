@@ -35,6 +35,7 @@ class CodingTaskCase:
     expected_tools: tuple[str, ...]
     expected_diffs: tuple[ExpectedDiff, ...] = ()
     forbidden_tools: tuple[str, ...] = ()
+    expected_final_contains: str | None = None
     simulated_tool_calls: tuple[dict[str, Any], ...] = ()
 
 
@@ -273,7 +274,22 @@ BUILTIN_AGENT_TRACE_CASES = [
         initial_files={"README.md": "# Demo\n"},
         expected_files=(),
         expected_tools=("list_files",),
+        expected_final_contains="README.md",
         forbidden_tools=("run_shell",),
+    )
+]
+
+
+BUILTIN_REAL_MODEL_TRACE_CASES = [
+    CodingTaskCase(
+        case_id="real_model_trace.list_workspace",
+        name="Real model trace captures list_files",
+        goal="Use the list_files tool to inspect this fixture workspace, then summarize the result.",
+        initial_files={"README.md": "# Real Model Trace Fixture\n"},
+        expected_files=(),
+        expected_tools=("list_files",),
+        expected_final_contains="README.md",
+        forbidden_tools=("write_file", "edit_file", "run_shell", "browser_interact"),
     )
 ]
 

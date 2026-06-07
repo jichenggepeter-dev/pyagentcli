@@ -62,4 +62,4 @@ For a local coding agent, the first reviewer should be predictable and auditable
 
 1. Compare deterministic Reviewer proposals against model-backed suggestions in evals.
 2. Include git diff summaries when the workspace is a git repository.
-3. Add real model trace capture behind explicit API configuration.
+3. Add per-model trace comparison reports.

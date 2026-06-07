@@ -1,4 +1,4 @@
-# Eval Harness v0.3
+# Eval Harness v0.4
 
 Eval Harness gives PyAgentCLI a repeatable local evaluation loop.
 
@@ -9,8 +9,9 @@ It has two layers:
 - RAG retrieval evals
 - captured trace evals
 - Reviewer output evals
+- opt-in real model trace evals
 
-These layers do not require a real model yet. This keeps the scorer deterministic before model-backed execution is added.
+The default layers do not require a real model. This keeps the scorer deterministic and dependency-light. Real model trace capture is available only through an explicit opt-in flag.
 
 ## Platform Evals
 
@@ -70,6 +71,29 @@ This creates the scoring contract for future real Agent runs. Once the Agent loo
 
 PyAgentCLI also includes a local fallback Agent trace eval. It runs the real `AgentLoop`, captures tool calls and observations, and scores the resulting trace without requiring an API key.
 
+## Real Model Trace Evals
+
+Real model trace evals run the real `AgentLoop` with the configured OpenAI-compatible model and capture the emitted tool trace.
+
+They are disabled by default. This prevents `pyagent --eval` from making external API calls.
+
+Enable them explicitly:
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  --eval \
+  --eval-real-model
+```
+
+If `OPENAI_API_KEY` is not configured, the CLI prints a disabled message instead of falling back to the local model.
+
+The first real model trace case checks:
+
+- expected `list_files` tool use
+- forbidden write, shell, and browser interaction tools
+- final output containing `README.md`
+
 ## Reviewer Output Evals
 
 Reviewer evals score the deterministic Reviewer after plan execution.
@@ -94,7 +118,7 @@ PYTHONPATH=src python -m pyagentcli \
   --eval
 ```
 
-The CLI prints platform, coding-task, RAG, trace, and Reviewer summaries and writes a JSONL report:
+The CLI prints platform, coding-task, RAG, trace, Reviewer, and real-model trace summaries and writes a JSONL report:
 
 ```text
 .pyagent/evals/eval_YYYYMMDD_HHMMSS.jsonl
@@ -108,6 +132,7 @@ Report lines include a `kind` field:
 {"kind": "rag_retrieval", "case_id": "rag_retrieval.typescript_symbol", "...": "..."}
 {"kind": "trace_eval", "case_id": "trace.update_readme_status", "...": "..."}
 {"kind": "reviewer_eval", "case_id": "reviewer.failed_step", "...": "..."}
+{"kind": "real_model_trace_eval", "case_id": "real_model_trace.list_workspace", "...": "..."}
 ```
 
 ## Why Start Deterministic
@@ -116,6 +141,6 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Add model-backed Reviewer proposal generation behind explicit API configuration.
-2. Add real model trace capture behind explicit API configuration.
-3. Add per-model and per-retriever comparison reports.
+1. Add per-model trace comparison reports.
+2. Add Reviewer proposal comparison evals.
+3. Add per-retriever comparison reports.

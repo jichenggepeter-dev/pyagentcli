@@ -1,6 +1,21 @@
 from pathlib import Path
 
 from pyagentcli.evals.runner import EvalRunner
+from pyagentcli.llm.base import LLMResponse, Message, ToolCall
+
+
+class FakeTraceLLM:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def chat(self, messages: list[Message], tools: list[dict]) -> LLMResponse:
+        self.calls += 1
+        if self.calls == 1:
+            return LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="fake_list", name="list_files", arguments={"path": "."})],
+            )
+        return LLMResponse(content="I inspected the workspace and found README.md.")
 
 
 def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
@@ -16,6 +31,8 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
         trace_results,
         reviewer_summary,
         reviewer_results,
+        real_model_trace_summary,
+        real_model_trace_results,
     ) = EvalRunner(
         workspace_root=tmp_path
     ).run_builtin()
@@ -48,6 +65,9 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert proposal_actions["reviewer.success_plan"] is None
     assert proposal_actions["reviewer.failed_step"] == "retry_step"
     assert proposal_actions["reviewer.skipped_step"] == "user_decision"
+    assert real_model_trace_summary.enabled is False
+    assert real_model_trace_summary.total == 0
+    assert real_model_trace_results == []
     assert report_path.exists()
     report_text = report_path.read_text(encoding="utf-8")
     assert "tools.registry" in report_text
@@ -61,3 +81,30 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert '"kind": "rag_retrieval"' in report_text
     assert '"kind": "trace_eval"' in report_text
     assert '"kind": "reviewer_eval"' in report_text
+    assert '"kind": "real_model_trace_eval"' not in report_text
+
+
+def test_eval_runner_runs_opt_in_real_model_trace_with_fake_llm(tmp_path: Path) -> None:
+    fake_llm = FakeTraceLLM()
+    (
+        *_,
+        real_model_trace_summary,
+        real_model_trace_results,
+    ) = EvalRunner(workspace_root=tmp_path).run_builtin(
+        include_real_model_trace=True,
+        real_model_llm=fake_llm,
+    )
+
+    assert fake_llm.calls == 2
+    assert real_model_trace_summary.enabled is True
+    assert real_model_trace_summary.total == 1
+    assert real_model_trace_summary.failed == 0
+    assert real_model_trace_summary.tool_call_accuracy == 1.0
+    assert len(real_model_trace_results) == 1
+    assert real_model_trace_results[0].passed is True
+    assert real_model_trace_results[0].used_tools == ["list_files"]
+    report_files = sorted((tmp_path / ".pyagent" / "evals").glob("eval_*.jsonl"))
+    assert report_files
+    report_text = report_files[-1].read_text(encoding="utf-8")
+    assert '"kind": "real_model_trace_eval"' in report_text
+    assert "real_model_trace.list_workspace" in report_text

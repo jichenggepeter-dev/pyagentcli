@@ -117,6 +117,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - AgentLoop trace capture with local fallback trace eval
 - expected diff scoring for coding task evals
 - Reviewer output scoring for gate decisions, retry proposals, and suggested tests
+- opt-in real model trace capture behind `--eval-real-model`
+- real model trace reports written as `real_model_trace_eval`
 
 ### Release and Packaging v0.1
 
@@ -184,11 +186,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Real Model Trace Capture**
-   Capture and score real model tool-call traces behind explicit API configuration.
-
-2. **Reviewer Proposal Comparison Eval**
+1. **Reviewer Proposal Comparison Eval**
    Compare deterministic Reviewer proposals against optional model-backed suggestions.
 
-3. **Browser Network Logs**
+2. **Browser Network Logs**
    Add local-only Playwright network request and response inspection.
+
+3. **Per-Model Trace Comparison**
+   Compare real model trace results across model configs without changing default local evals.

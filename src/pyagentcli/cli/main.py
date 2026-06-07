@@ -176,6 +176,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Run the built-in local evaluation harness.",
     )
     parser.add_argument(
+        "--eval-real-model",
+        action="store_true",
+        help="Opt in to real-model trace evals when --eval is used. Requires OPENAI_API_KEY.",
+    )
+    parser.add_argument(
         "--list-skills",
         action="store_true",
         help="List enabled local skills from .pyagent/skills.",
@@ -224,7 +229,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.eval:
-        print(run_evals(workspace=args.workspace))
+        print(run_evals(workspace=args.workspace, include_real_model_trace=args.eval_real_model))
         return
 
     if args.list_skills:
@@ -338,8 +343,16 @@ def show_stale_memory(days: int, *, workspace: str | None = None) -> str:
     return ProjectMemory(config.workspace_root).format_stale_notes(older_than_days=days)
 
 
-def run_evals(*, workspace: str | None = None) -> str:
+def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = False) -> str:
     config = load_config(workspace=workspace, interactive=False)
+    real_model_llm = None
+    real_model_disabled_reason = "enable with --eval-real-model"
+    if include_real_model_trace:
+        if config.api_key:
+            real_model_llm = build_llm_client(config)
+            real_model_disabled_reason = None
+        else:
+            real_model_disabled_reason = "OPENAI_API_KEY is not configured"
     (
         summary,
         results,
@@ -352,15 +365,22 @@ def run_evals(*, workspace: str | None = None) -> str:
         trace_results,
         reviewer_summary,
         reviewer_results,
+        real_model_trace_summary,
+        real_model_trace_results,
     ) = EvalRunner(
         workspace_root=config.workspace_root
-    ).run_builtin()
+    ).run_builtin(
+        include_real_model_trace=include_real_model_trace,
+        real_model_llm=real_model_llm,
+        real_model_disabled_reason=real_model_disabled_reason,
+    )
     lines = [
         summary.format_text(),
         coding_summary.format_text(),
         rag_summary.format_text(),
         trace_summary.format_text(),
         reviewer_summary.format_text(),
+        real_model_trace_summary.format_text(),
         f"Report: {report_path}",
         "",
     ]
@@ -395,6 +415,12 @@ def run_evals(*, workspace: str | None = None) -> str:
             f"proposal={result.proposal_action or '<none>'}; "
             f"suggested_tests={result.suggested_tests_count}"
         )
+        if not result.passed:
+            lines.append(f"  {result.message}")
+    for result in real_model_trace_results:
+        status = "PASS" if result.passed else "FAIL"
+        lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
+        lines.append(f"  tools: {', '.join(result.used_tools) or '<none>'}")
         if not result.passed:
             lines.append(f"  {result.message}")
     return "\n".join(lines).rstrip()

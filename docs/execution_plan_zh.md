@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.8：Real Model Trace Capture
+- Phase 4.9：Reviewer Proposal Comparison Eval
 
 ## Roadmap 总览
 
@@ -638,31 +638,41 @@ User Goal
 
 名称：
 
-- Real Model Trace Capture
+- Reviewer Proposal Comparison Eval
 
 目标：
 
-- 在显式 API 配置下捕获真实模型运行 trace，并复用现有 trace eval 指标评估工具调用、安全违规和最终输出。
+- 比较 deterministic Reviewer retry proposal 与可选 model-backed suggestion，评估模型建议是否和安全边界一致。
 
 第一小步：
 
-- 设计真实模型 trace capture 开关，避免默认 eval 依赖外部 API。
+- 设计 proposal comparison result 字段：deterministic_action、model_action、matched、confidence。
 
 第二小步：
 
-- 增加一个 opt-in eval case，使用真实 LLM client 运行受限任务并保存 trace。
+- 用 fake reviewer model 覆盖 action matched / mismatched / invalid JSON 降级路径。
 
 第三小步：
 
-- 将真实 trace 写入 JSONL report，并和 deterministic trace eval 区分。
+- 将 comparison 写入 eval JSONL report 和 CLI summary。
 
 完成标准：
 
-- 默认 `pyagent --eval` 不调用真实 API。
-- 显式开启后才运行 real model trace eval。
-- trace 仍能计算 expected tools、forbidden tools、final contains。
-- 无 API key 时给出清晰跳过或禁用原因。
+- deterministic gate 仍是最终安全边界。
+- model suggestion 只能作为 advisory 参与评分。
+- mismatch 能被 eval 捕获。
+- 无真实模型时 fake path 可稳定测试。
 - 全量测试通过。
+
+## 最近完成：Real Model Trace Capture
+
+完成内容：
+
+- 新增 `--eval-real-model` 显式开关，默认 `pyagent --eval` 不调用外部 API。
+- 新增 opt-in real model trace case：要求真实模型调用 `list_files` 并最终输出 `README.md`。
+- 无 `OPENAI_API_KEY` 时输出清晰 disabled 原因，不 fallback 到本地模型。
+- JSONL report 新增 `real_model_trace_eval` 类型。
+- fake LLM 测试覆盖 opt-in trace capture 和 scoring 路径。
 
 ## 最近完成：Advanced Browser Interaction
 

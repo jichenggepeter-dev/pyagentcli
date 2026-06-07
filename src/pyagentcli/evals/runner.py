@@ -15,6 +15,7 @@ from pyagentcli.evals.cases import (
     BUILTIN_CASES,
     BUILTIN_CODING_TASKS,
     BUILTIN_RAG_RETRIEVAL_CASES,
+    BUILTIN_REAL_MODEL_TRACE_CASES,
     BUILTIN_REVIEWER_EVAL_CASES,
     BUILTIN_TRACE_EVAL_CASES,
     CodingTaskCase,
@@ -28,12 +29,14 @@ from pyagentcli.evals.metrics import (
     CodingTaskSummary,
     EvalSummary,
     RagRetrievalSummary,
+    RealModelTraceSummary,
     ReviewerEvalSummary,
     TraceEvalSummary,
 )
 from pyagentcli.agent.loop import AgentLoop
 from pyagentcli.agent.planner import PlanPreview, PlanRun, PlanRunStatus, PlanStep
 from pyagentcli.agent.reviewer import Reviewer
+from pyagentcli.llm.base import LLMClient
 from pyagentcli.llm.openai_compatible import LocalFallbackClient
 from pyagentcli.memory.project_memory import ProjectMemory
 from pyagentcli.rag.indexer import CodeIndexer
@@ -129,6 +132,10 @@ class EvalRunner:
 
     def run_builtin(
         self,
+        *,
+        include_real_model_trace: bool = False,
+        real_model_llm: LLMClient | None = None,
+        real_model_disabled_reason: str | None = None,
     ) -> tuple[
         EvalSummary,
         list[EvalResult],
@@ -141,6 +148,8 @@ class EvalRunner:
         list[TraceEvalResult],
         ReviewerEvalSummary,
         list[ReviewerEvalResult],
+        RealModelTraceSummary,
+        list[TraceEvalResult],
     ]:
         with TemporaryDirectory() as tmp:
             eval_root = Path(tmp)
@@ -150,6 +159,12 @@ class EvalRunner:
             trace_results = [self._run_trace_eval(case) for case in BUILTIN_TRACE_EVAL_CASES]
             trace_results.extend(self._run_agent_trace_case(case, eval_root) for case in BUILTIN_AGENT_TRACE_CASES)
             reviewer_results = [self._run_reviewer_eval(case, eval_root) for case in BUILTIN_REVIEWER_EVAL_CASES]
+            real_model_trace_results: list[TraceEvalResult] = []
+            if include_real_model_trace and real_model_llm is not None:
+                real_model_trace_results = [
+                    self._run_agent_trace_case(case, eval_root, llm=real_model_llm)
+                    for case in BUILTIN_REAL_MODEL_TRACE_CASES
+                ]
 
         summary = EvalSummary(
             total=len(results),
@@ -193,7 +208,26 @@ class EvalRunner:
                 if result.suggested_tests_count >= result.expected_suggested_tests_min
             ),
         )
-        report_path = self._write_report(results, coding_results, rag_results, trace_results, reviewer_results)
+        real_model_trace_summary = RealModelTraceSummary(
+            total=len(real_model_trace_results),
+            passed=sum(1 for result in real_model_trace_results if result.passed),
+            failed=sum(1 for result in real_model_trace_results if not result.passed),
+            expected_tool_calls=sum(len(result.expected_tools) for result in real_model_trace_results),
+            matched_tool_calls=sum(result.matched_tool_calls for result in real_model_trace_results),
+            safety_violations=sum(result.safety_violations for result in real_model_trace_results),
+            enabled=include_real_model_trace and real_model_llm is not None,
+            disabled_reason=None
+            if include_real_model_trace and real_model_llm is not None
+            else (real_model_disabled_reason or "enable with --eval-real-model"),
+        )
+        report_path = self._write_report(
+            results,
+            coding_results,
+            rag_results,
+            trace_results,
+            reviewer_results,
+            real_model_trace_results,
+        )
         return (
             summary,
             results,
@@ -206,6 +240,8 @@ class EvalRunner:
             trace_results,
             reviewer_summary,
             reviewer_results,
+            real_model_trace_summary,
+            real_model_trace_results,
         )
 
     def _run_case(self, case: EvalCase, eval_root: Path) -> EvalResult:
@@ -360,7 +396,13 @@ class EvalRunner:
         )
         return result
 
-    def _run_agent_trace_case(self, case: CodingTaskCase, eval_root: Path) -> TraceEvalResult:
+    def _run_agent_trace_case(
+        self,
+        case: CodingTaskCase,
+        eval_root: Path,
+        *,
+        llm: LLMClient | None = None,
+    ) -> TraceEvalResult:
         started = perf_counter()
         workspace = workspace_for_case(eval_root, EvalCase(case.case_id, case.name, case.goal))
         workspace.mkdir(parents=True, exist_ok=True)
@@ -384,7 +426,7 @@ class EvalRunner:
             )
 
         agent = AgentLoop(
-            llm=LocalFallbackClient(),
+            llm=llm or LocalFallbackClient(),
             tools=default_registry(),
             tool_context_factory=context_factory,
             max_steps=3,
@@ -396,7 +438,7 @@ class EvalRunner:
             trace=run.trace.to_eval_trace(),
             expected_tools=case.expected_tools,
             forbidden_tools=case.forbidden_tools,
-            expected_final_contains="README.md",
+            expected_final_contains=case.expected_final_contains,
             started=started,
         )
 
@@ -467,6 +509,7 @@ class EvalRunner:
         rag_results: list[RagRetrievalResult],
         trace_results: list[TraceEvalResult],
         reviewer_results: list[ReviewerEvalResult],
+        real_model_trace_results: list[TraceEvalResult],
     ) -> Path:
         self.report_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.report_dir / f"eval_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.jsonl"
@@ -485,6 +528,9 @@ class EvalRunner:
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in reviewer_results:
                 payload = {"kind": "reviewer_eval", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            for result in real_model_trace_results:
+                payload = {"kind": "real_model_trace_eval", **asdict(result)}
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
         return report_path
 

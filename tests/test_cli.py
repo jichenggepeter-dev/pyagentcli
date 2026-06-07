@@ -55,6 +55,7 @@ def test_parse_memory_flags() -> None:
     delete_args = parse_args(["--delete-memory-line", "3"])
     stale_args = parse_args(["--stale-memory-days", "30"])
     eval_args = parse_args(["--eval"])
+    eval_real_model_args = parse_args(["--eval", "--eval-real-model"])
     skills_args = parse_args(["--list-skills"])
     browser_args = parse_args(["--check-browser"])
 
@@ -64,6 +65,8 @@ def test_parse_memory_flags() -> None:
     assert delete_args.delete_memory_line == 3
     assert stale_args.stale_memory_days == 30
     assert eval_args.eval is True
+    assert eval_real_model_args.eval is True
+    assert eval_real_model_args.eval_real_model is True
     assert skills_args.list_skills is True
     assert browser_args.check_browser is True
 
@@ -482,6 +485,16 @@ def test_run_evals_outputs_summary(tmp_path) -> None:
     assert "Reviewer eval:" in result
     assert "reviewer.failed_step" in result
     assert "proposal=retry_step" in result
+    assert "Real model trace eval: disabled (enable with --eval-real-model)." in result
+
+
+def test_run_evals_real_model_without_api_key_is_disabled(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    result = run_evals(workspace=str(tmp_path), include_real_model_trace=True)
+
+    assert "Real model trace eval: disabled (OPENAI_API_KEY is not configured)." in result
+    assert "real_model_trace.list_workspace" not in result
 
 
 def test_index_workspace_builds_index(tmp_path) -> None:
