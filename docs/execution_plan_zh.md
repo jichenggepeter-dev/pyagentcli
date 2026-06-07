@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.7：Model-backed Reviewer Proposal
+- Phase 2.3：Advanced Browser Interaction
 
 ## Roadmap 总览
 
@@ -638,31 +638,41 @@ User Goal
 
 名称：
 
-- Model-backed Reviewer Proposal
+- Advanced Browser Interaction
 
 目标：
 
-- 在 deterministic Reviewer 基础上增加可选模型复核建议，但不让模型直接改变 gate 结果或自动执行 retry。
+- 在已有 local-only 浏览器 inspection 和 selector query 基础上，增加受控的本地点击、输入、等待和页面状态验证能力。
 
 第一小步：
 
-- 设计 model-backed reviewer 输入输出契约：run summary、deterministic report、model suggestion。
+- 设计浏览器交互工具的安全边界：只允许 localhost / workspace file，默认只读，交互动作需要审批。
 
 第二小步：
 
-- 接入 reviewer role config，仅在用户显式配置 API key / model 时启用。
+- 增加最小 Playwright click/type/wait 工具，并保持 Playwright 未安装时的清晰降级。
 
 第三小步：
 
-- 将模型建议写入 review artifact，同时保持 deterministic gate 作为最终安全边界。
+- 增加本地 HTML fixture 测试，验证 selector、click、type 后页面状态可被读取。
 
 完成标准：
 
-- 无 API key 时 deterministic Reviewer 行为不变。
-- 有 reviewer model 配置时可生成建议，但不会自动执行工具。
-- 模型建议能和 deterministic retry proposal 并列展示。
-- eval 或测试能覆盖 fallback 和 model-disabled 路径。
+- 外部 URL 仍默认拒绝。
+- click/type 等交互工具需要审批或高风险标记。
+- 未安装 Playwright 时核心测试不失败。
+- 有 Playwright 时本地 fixture 可完成一次真实交互验证。
 - 全量测试通过。
+
+## 最近完成：Model-backed Reviewer Proposal
+
+完成内容：
+
+- 新增 `ModelReviewSuggestion`，支持 summary、risk notes、suggested tests、recommended action、confidence。
+- Reviewer 可选接入 reviewer role model，仅在 API key 和 `[agents.reviewer].model` 同时存在时启用。
+- 模型建议写入 review artifact，但 deterministic gate 仍是最终安全边界。
+- 无模型配置时 Reviewer 行为保持不变。
+- 测试覆盖 fake model 输出和坏 JSON 降级路径。
 
 ## 最近完成：Reviewer Output Scoring
 

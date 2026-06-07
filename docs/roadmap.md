@@ -101,6 +101,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - Markdown review artifact under `.pyagent/reviews/`
 - risk notes and suggested tests
 - Reviewer gate prevents skipped, failed, or cancelled steps from being marked successful
+- optional model-backed Reviewer suggestions when reviewer role config and API key are present
+- model suggestions are advisory and cannot override the deterministic gate
 
 ### Eval Harness
 
@@ -157,6 +159,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - Reviewer handoff recommendations for accept, retry, resume, or user decision
 - role-level model and prompt config for Planner, Executor, and Reviewer
 - read-only Reviewer retry proposals for failed, skipped, or cancelled steps
+- optional model-backed Reviewer suggestions alongside deterministic retry proposals
 
 ## Not Yet Built
 
@@ -181,11 +184,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Model-backed Reviewer Proposal**
-   Compare deterministic retry proposals against model-backed reviewer suggestions.
-
-2. **Advanced Browser Interaction**
+1. **Advanced Browser Interaction**
    Add user-approved local click/type flows after selector query is stable.
 
-3. **Real Model Trace Capture**
+2. **Real Model Trace Capture**
    Capture and score real model tool-call traces behind explicit API configuration.
+
+3. **Reviewer Proposal Comparison Eval**
+   Compare deterministic Reviewer proposals against optional model-backed suggestions.

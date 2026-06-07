@@ -7,6 +7,24 @@ from typing import Any
 
 from pyagentcli.agent.contracts import ReviewerGateDecision, ReviewerInputContract
 from pyagentcli.agent.planner import PlanRun, PlanStep
+from pyagentcli.llm.base import LLMClient, Message
+
+
+MODEL_REVIEWER_PROMPT = """You are PyAgentCLI Reviewer Advisor.
+
+You provide optional review advice after the deterministic Reviewer has already produced a gate decision.
+You must not claim to execute tools, retry steps, or override the deterministic gate.
+
+Return only JSON with this shape:
+
+{
+  "summary": "one concise sentence",
+  "risk_notes": ["risk note"],
+  "suggested_tests": ["test suggestion"],
+  "recommended_action": "accept|retry_step|resume_plan|user_decision|inspect",
+  "confidence": "low|medium|high"
+}
+"""
 
 
 @dataclass(frozen=True)
@@ -31,6 +49,27 @@ class RetryProposal:
 
 
 @dataclass(frozen=True)
+class ModelReviewSuggestion:
+    summary: str
+    risk_notes: list[str]
+    suggested_tests: list[str]
+    recommended_action: str
+    confidence: str
+    raw_response: str
+
+    def format_text(self) -> str:
+        lines = ["Model-backed reviewer suggestion:"]
+        lines.append(f"- Summary: {self.summary}")
+        lines.append(f"- Recommended action: {self.recommended_action}")
+        lines.append(f"- Confidence: {self.confidence}")
+        lines.append("- Risk notes:")
+        lines.extend(f"  - {note}" for note in (self.risk_notes or ["<none>"]))
+        lines.append("- Suggested tests:")
+        lines.extend(f"  - {test}" for test in (self.suggested_tests or ["<none>"]))
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
 class ReviewReport:
     summary: str
     risks: list[str]
@@ -40,6 +79,7 @@ class ReviewReport:
     gate: ReviewerGateDecision
     handoff_recommendation: str
     retry_proposal: RetryProposal | None = None
+    model_suggestion: ModelReviewSuggestion | None = None
 
     def format_text(self) -> str:
         lines = [f"Review: {self.summary}", ""]
@@ -59,13 +99,23 @@ class ReviewReport:
         lines.extend(f"- {path}" for path in (self.paths or ["<none>"]))
         if self.retry_proposal is not None:
             lines.extend(["", self.retry_proposal.format_text()])
+        if self.model_suggestion is not None:
+            lines.extend(["", self.model_suggestion.format_text()])
         return "\n".join(lines)
 
 
 class Reviewer:
-    def __init__(self, workspace_root: Path) -> None:
+    def __init__(
+        self,
+        workspace_root: Path,
+        *,
+        llm: LLMClient | None = None,
+        model_system_prompt: str | None = None,
+    ) -> None:
         self.workspace_root = workspace_root.resolve()
         self.reviews_dir = self.workspace_root / ".pyagent" / "reviews"
+        self.llm = llm
+        self.model_system_prompt = model_system_prompt or MODEL_REVIEWER_PROMPT
 
     def review_plan(self, run: PlanRun) -> ReviewReport:
         reviewer_input = ReviewerInputContract(run=run)
@@ -76,6 +126,14 @@ class Reviewer:
         gate = _gate_decision(reviewer_input)
         handoff_recommendation = _handoff_recommendation(reviewer_input, gate)
         retry_proposal = _retry_proposal(run)
+        model_suggestion = self._model_suggestion(
+            run=run,
+            summary=summary,
+            risks=risks,
+            suggested_tests=suggested_tests,
+            gate=gate,
+            retry_proposal=retry_proposal,
+        )
         report = ReviewReport(
             summary=summary,
             risks=risks,
@@ -85,6 +143,7 @@ class Reviewer:
             gate=gate,
             handoff_recommendation=handoff_recommendation,
             retry_proposal=retry_proposal,
+            model_suggestion=model_suggestion,
         )
         self.save(run, report)
         return report
@@ -125,12 +184,130 @@ class Reviewer:
                 paths.append(raw_path)
         return tools, paths
 
+    def _model_suggestion(
+        self,
+        *,
+        run: PlanRun,
+        summary: str,
+        risks: list[str],
+        suggested_tests: list[str],
+        gate: ReviewerGateDecision,
+        retry_proposal: RetryProposal | None,
+    ) -> ModelReviewSuggestion | None:
+        if self.llm is None:
+            return None
+
+        prompt = _model_review_prompt(
+            run=run,
+            summary=summary,
+            risks=risks,
+            suggested_tests=suggested_tests,
+            gate=gate,
+            retry_proposal=retry_proposal,
+        )
+        response = self.llm.chat(
+            [Message.system(self.model_system_prompt), Message.user(prompt)],
+            tools=[],
+        )
+        return _parse_model_suggestion(response.content or "")
+
 
 def _summary(run: PlanRun, paths: list[str]) -> str:
     status = str(run.status)
     if paths:
         return f"Plan finished with status {status}; observed workspace paths: {', '.join(paths[:5])}."
     return f"Plan finished with status {status}; no file paths were observed in audit logs."
+
+
+def _model_review_prompt(
+    *,
+    run: PlanRun,
+    summary: str,
+    risks: list[str],
+    suggested_tests: list[str],
+    gate: ReviewerGateDecision,
+    retry_proposal: RetryProposal | None,
+) -> str:
+    steps = [
+        {
+            "id": step.id,
+            "title": step.title,
+            "risk": step.risk,
+            "status": step.status,
+            "result_summary": step.result_summary,
+            "suggested_tools": step.suggested_tools,
+        }
+        for step in run.plan.steps
+    ]
+    payload = {
+        "goal": run.goal,
+        "plan_status": str(run.status),
+        "execution_result": run.execution_result,
+        "deterministic_review": {
+            "summary": summary,
+            "risks": risks,
+            "suggested_tests": suggested_tests,
+            "gate_passed": gate.passed,
+            "gate_reasons": list(gate.reasons),
+            "retry_proposal": {
+                "recommended_action": retry_proposal.recommended_action,
+                "target_step_id": retry_proposal.target_step_id,
+                "reason": retry_proposal.reason,
+                "requires_approval": retry_proposal.requires_approval,
+            }
+            if retry_proposal is not None
+            else None,
+        },
+        "steps": steps,
+        "constraints": [
+            "Do not override the deterministic gate.",
+            "Do not suggest executing tools automatically.",
+            "Recommended action must be one of accept, retry_step, resume_plan, user_decision, inspect.",
+        ],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def _parse_model_suggestion(content: str) -> ModelReviewSuggestion:
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        return ModelReviewSuggestion(
+            summary="Model reviewer returned non-JSON advice.",
+            risk_notes=[],
+            suggested_tests=[],
+            recommended_action="inspect",
+            confidence="low",
+            raw_response=content,
+        )
+
+    if not isinstance(payload, dict):
+        payload = {}
+    recommended_action = _allowed_action(str(payload.get("recommended_action") or "inspect"))
+    confidence = str(payload.get("confidence") or "low").lower()
+    if confidence not in {"low", "medium", "high"}:
+        confidence = "low"
+    return ModelReviewSuggestion(
+        summary=str(payload.get("summary") or "No model reviewer summary provided."),
+        risk_notes=_string_list(payload.get("risk_notes")),
+        suggested_tests=_string_list(payload.get("suggested_tests")),
+        recommended_action=recommended_action,
+        confidence=confidence,
+        raw_response=content,
+    )
+
+
+def _allowed_action(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"accept", "retry_step", "resume_plan", "user_decision", "inspect"}:
+        return normalized
+    return "inspect"
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
 
 
 def _risk_notes(run: PlanRun) -> list[str]:

@@ -137,6 +137,18 @@ Proposal behavior:
 
 The proposal is only text stored in the review and plan output. It does not execute tools or retry automatically.
 
+## Model-Backed Reviewer Suggestion
+
+When `[agents.reviewer].model` is configured and an API key is available, the Reviewer can append an optional model-backed suggestion to the review artifact.
+
+The model suggestion is advisory:
+
+- it reads the deterministic review summary
+- it may add risk notes and suggested tests
+- it may recommend `accept`, `retry_step`, `resume_plan`, `user_decision`, or `inspect`
+- it does not override `ReviewerGateDecision`
+- it does not execute tools or retry steps
+
 ## Why This Matters
 
 This prevents a common agent failure mode:
@@ -159,6 +171,5 @@ What did the reviewer recommend next?
 
 ## Next Steps
 
-- Add model-backed Reviewer proposal generation using the existing reviewer role config.
 - Compare deterministic Reviewer proposals against model-backed suggestions in evals.
 - Compare deterministic retry proposals against model-backed proposals in evals.

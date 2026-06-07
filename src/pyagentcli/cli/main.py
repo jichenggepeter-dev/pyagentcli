@@ -743,7 +743,14 @@ def _planner_handoff(plan: PlanPreview) -> AgentHandoff:
 
 
 def _review_plan_execution(workspace_root, store: PlanStore, run: PlanRun) -> PlanRun:
-    report = Reviewer(workspace_root).review_plan(run)
+    config = load_config(workspace=str(workspace_root), interactive=False)
+    reviewer_config = config.role_config("reviewer")
+    reviewer_llm = build_llm_client(config, role="reviewer") if config.api_key and reviewer_config.model else None
+    report = Reviewer(
+        workspace_root,
+        llm=reviewer_llm,
+        model_system_prompt=reviewer_config.system_prompt,
+    ).review_plan(run)
     status = run.status
     if run.status == PlanRunStatus.SUCCESS and not report.gate.passed:
         status = PlanRunStatus.FAILED

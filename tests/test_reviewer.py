@@ -2,6 +2,18 @@ from pathlib import Path
 
 from pyagentcli.agent.planner import PlanPreview, PlanRun, PlanRunStatus, PlanStep
 from pyagentcli.agent.reviewer import Reviewer
+from pyagentcli.llm.base import LLMResponse, Message
+
+
+class FakeReviewerLLM:
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.messages: list[Message] = []
+
+    def chat(self, messages: list[Message], tools: list[dict]) -> LLMResponse:
+        self.messages = messages
+        assert tools == []
+        return LLMResponse(content=self.content)
 
 
 def test_reviewer_reports_risks_and_suggested_tests(tmp_path: Path) -> None:
@@ -37,6 +49,7 @@ def test_reviewer_reports_risks_and_suggested_tests(tmp_path: Path) -> None:
 
     assert report.gate.passed is True
     assert report.retry_proposal is None
+    assert report.model_suggestion is None
     assert "Gate: pass" in report.format_text()
     assert "Handoff recommendation: accept after running the suggested verification commands" in report.format_text()
     assert "WRITE step present" in report.format_text()
@@ -125,3 +138,68 @@ def test_reviewer_proposes_resume_for_cancelled_step(tmp_path: Path) -> None:
     assert report.retry_proposal.recommended_action == "resume_plan"
     assert report.retry_proposal.target_step_id == "S1"
     assert report.retry_proposal.suggested_command == "pyagent --resume-plan plan_cancelled"
+
+
+def test_reviewer_includes_model_suggestion_when_llm_is_configured(tmp_path: Path) -> None:
+    run = PlanRun(
+        plan_id="plan_model_review",
+        goal="update docs",
+        status=PlanRunStatus.FAILED,
+        execution_result="pytest failed",
+        plan=PlanPreview(
+            summary="Update docs",
+            steps=[
+                PlanStep(
+                    id="S1",
+                    title="Run tests",
+                    description="Run tests.",
+                    suggested_tools=["run_shell"],
+                    risk="EXECUTE",
+                    status="failed",
+                    result_summary="pytest failed",
+                ),
+            ],
+        ),
+    )
+    fake_llm = FakeReviewerLLM(
+        """
+{
+  "summary": "Retry the failed test step after checking the failure output.",
+  "risk_notes": ["Failed verification means the task is not complete."],
+  "suggested_tests": ["Re-run the focused pytest command."],
+  "recommended_action": "retry_step",
+  "confidence": "high"
+}
+""".strip()
+    )
+
+    report = Reviewer(tmp_path, llm=fake_llm).review_plan(run)
+
+    assert report.gate.passed is False
+    assert report.retry_proposal is not None
+    assert report.retry_proposal.recommended_action == "retry_step"
+    assert report.model_suggestion is not None
+    assert report.model_suggestion.recommended_action == "retry_step"
+    assert report.model_suggestion.confidence == "high"
+    assert "Model-backed reviewer suggestion:" in report.format_text()
+    assert "Retry the failed test step" in report.format_text()
+    assert "deterministic_review" in (fake_llm.messages[-1].content or "")
+
+
+def test_reviewer_sanitizes_invalid_model_suggestion(tmp_path: Path) -> None:
+    run = PlanRun(
+        plan_id="plan_invalid_model_review",
+        goal="update docs",
+        status=PlanRunStatus.SUCCESS,
+        plan=PlanPreview(
+            summary="Update docs",
+            steps=[PlanStep(id="S1", title="Read", description="Read.", risk="READ", status="success")],
+        ),
+    )
+
+    report = Reviewer(tmp_path, llm=FakeReviewerLLM("not json")).review_plan(run)
+
+    assert report.gate.passed is True
+    assert report.model_suggestion is not None
+    assert report.model_suggestion.recommended_action == "inspect"
+    assert report.model_suggestion.confidence == "low"
