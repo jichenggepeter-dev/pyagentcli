@@ -32,6 +32,7 @@ from pyagentcli.safety.audit_log import AuditLogger
 from pyagentcli.safety.policy import SafetyPolicy
 from pyagentcli.skills.loader import SkillLoader
 from pyagentcli.tools.base import ToolContext
+from pyagentcli.tools.browser import check_browser_capabilities
 from pyagentcli.tools.registry import default_registry
 
 
@@ -179,6 +180,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="List enabled local skills from .pyagent/skills.",
     )
+    parser.add_argument(
+        "--check-browser",
+        action="store_true",
+        help="Check optional Playwright browser capability status.",
+    )
     return parser.parse_args(argv)
 
 
@@ -223,6 +229,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.list_skills:
         print(list_skills(workspace=args.workspace))
+        return
+
+    if args.check_browser:
+        print(check_browser())
         return
 
     if args.show_plan:
@@ -356,6 +366,10 @@ def run_evals(*, workspace: str | None = None) -> str:
 def list_skills(*, workspace: str | None = None) -> str:
     config = load_config(workspace=workspace, interactive=False)
     return SkillLoader(config.workspace_root).format_skill_list()
+
+
+def check_browser() -> str:
+    return check_browser_capabilities().format_text()
 
 
 def run_agent_task(goal: str, *, workspace: str | None = None, interactive: bool = True) -> str:

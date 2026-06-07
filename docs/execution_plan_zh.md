@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.6：Browser Playwright Setup
+- Phase 2.7：Browser Success Path Verification
 
 ## Roadmap 总览
 
@@ -638,27 +638,27 @@ User Goal
 
 名称：
 
-- Browser Playwright Setup
+- Browser Success Path Verification
 
 目标：
 
-- 在可选 Playwright 工具外壳完成后，补安装/检测/真实浏览器验证流程。
+- 在有 Playwright 的环境中验证 console/screenshot 成功路径，并沉淀为可重复 smoke。
 
 第一小步：
 
-- 提供可选依赖安装文档和环境检测命令。
+- 准备本地 HTML fixture，包含 console log 和可截图内容。
 
 第二小步：
 
-- 在本地测试页上验证 console log 和 screenshot 成功路径。
+- 在安装 Playwright 的环境运行浏览器工具成功路径。
 
 第三小步：
 
-- 增加 network log 或 selector query 的下一层只读能力。
+- 将成功路径加入可选测试或手动验证文档。
 
 完成标准：
 
-- 没有 Playwright 时降级提示清晰。
-- 有 Playwright 时 console/screenshot 真实可用。
+- 有 Playwright 时 console/screenshot 可真实执行。
+- 无 Playwright 时测试仍跳过或降级，不影响核心套件。
 - 外部 URL 不默认开放。
 - 全量测试通过。

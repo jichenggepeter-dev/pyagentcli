@@ -15,6 +15,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+browser = ["playwright>=1.44"]
 
 [project.scripts]
 pyagent = "pyagentcli.cli.main:main"
@@ -25,4 +26,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-

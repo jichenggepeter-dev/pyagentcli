@@ -67,7 +67,20 @@ Browser v0.2 keeps Playwright optional:
 - console logs and screenshots require Playwright when available
 - screenshot output is restricted to `.pyagent/browser/`
 
-Install and browser binary setup are intentionally not automatic in this slice.
+Check local browser capability status:
+
+```bash
+pyagent --check-browser
+```
+
+Install optional browser support:
+
+```bash
+python -m pip install -e ".[browser]"
+python -m playwright install chromium
+```
+
+Install and browser binary setup are intentionally explicit, not automatic.
 
 ## Non-Goals
 

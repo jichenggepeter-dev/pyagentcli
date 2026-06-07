@@ -3,6 +3,7 @@ from pyagentcli.agent.planner import PlanPreview, PlanRun, PlanRunStatus, PlanSt
 from pyagentcli.cli.main import (
     _review_plan_execution,
     build_agent,
+    check_browser,
     compress_memory,
     delete_memory_line,
     enrich_goal,
@@ -55,6 +56,7 @@ def test_parse_memory_flags() -> None:
     stale_args = parse_args(["--stale-memory-days", "30"])
     eval_args = parse_args(["--eval"])
     skills_args = parse_args(["--list-skills"])
+    browser_args = parse_args(["--check-browser"])
 
     assert memory_args.memory is True
     assert remember_args.remember == "Use focused edits."
@@ -63,6 +65,14 @@ def test_parse_memory_flags() -> None:
     assert stale_args.stale_memory_days == 30
     assert eval_args.eval is True
     assert skills_args.list_skills is True
+    assert browser_args.check_browser is True
+
+
+def test_check_browser_outputs_status() -> None:
+    result = check_browser()
+
+    assert "Browser capability status:" in result
+    assert "Playwright package:" in result
 
 
 def test_execute_planned_task_non_interactive_does_not_execute(tmp_path, monkeypatch) -> None:

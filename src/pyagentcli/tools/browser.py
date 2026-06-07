@@ -4,8 +4,10 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from html import unescape
 from html.parser import HTMLParser
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,32 @@ from pyagentcli.tools.base import RiskLevel, ToolContext, ToolResult, function_s
 
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+@dataclass(frozen=True)
+class BrowserCapabilityStatus:
+    playwright_installed: bool
+    message: str
+
+    def format_text(self) -> str:
+        status = "installed" if self.playwright_installed else "missing"
+        return (
+            "Browser capability status:\n"
+            f"- Playwright package: {status}\n"
+            f"- {self.message}"
+        )
+
+
+def check_browser_capabilities() -> BrowserCapabilityStatus:
+    if find_spec("playwright") is None:
+        return BrowserCapabilityStatus(
+            playwright_installed=False,
+            message='Install optional browser support with `python -m pip install -e ".[browser]"`, then run `python -m playwright install chromium`.',
+        )
+    return BrowserCapabilityStatus(
+        playwright_installed=True,
+        message="Playwright Python package is available. If browser launch fails, run `python -m playwright install chromium`.",
+    )
 
 
 class InspectPageTool:

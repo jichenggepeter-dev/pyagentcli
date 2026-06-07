@@ -26,6 +26,13 @@ def test_console_script_entrypoint_is_declared() -> None:
     assert ROOT.joinpath("src", "pyagentcli", "__main__.py").exists()
 
 
+def test_browser_optional_dependency_extra_is_declared() -> None:
+    optional = load_pyproject()["project"]["optional-dependencies"]
+
+    assert "browser" in optional
+    assert any(dependency.startswith("playwright") for dependency in optional["browser"])
+
+
 def test_readme_quick_start_mentions_install_and_console_script() -> None:
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
 

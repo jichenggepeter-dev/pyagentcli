@@ -139,6 +139,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - DOM-oriented static snapshot tool
 - optional Playwright console log and screenshot tool shells with clear missing-dependency fallback
 - screenshot output restricted to `.pyagent/browser/`
+- `--check-browser` optional capability diagnostic
+- `browser` optional dependency extra for Playwright
 
 ### Multi-Agent v0.3
 
@@ -174,8 +176,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Browser Playwright Setup**
-   Add optional install/setup guidance and fuller Playwright-backed browser verification.
+1. **Browser Success Path Verification**
+   Verify console logs and screenshots in an environment with Playwright installed.
 
 2. **Model-backed Eval v0.3**
    Replace simulated tool calls with captured Agent runs and expected diff scoring.

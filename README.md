@@ -82,6 +82,7 @@ pyagent --remember "Prefer edit_file for small edits."
 pyagent --memory
 pyagent --eval
 pyagent --list-skills
+pyagent --check-browser
 pyagent
 ```
 
