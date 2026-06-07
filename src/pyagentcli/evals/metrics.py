@@ -169,3 +169,33 @@ class ReviewerEvalSummary:
             f"proposal matches {self.proposal_matches}/{self.total}; "
             f"suggested-tests matches {self.suggested_tests_matches}/{self.total}."
         )
+
+
+@dataclass(frozen=True)
+class ReviewerProposalComparisonSummary:
+    total: int
+    passed: int
+    failed: int
+    matched: int
+    mismatched: int
+
+    @property
+    def pass_rate(self) -> float:
+        if self.total == 0:
+            return 0.0
+        return self.passed / self.total
+
+    @property
+    def match_rate(self) -> float:
+        if self.total == 0:
+            return 0.0
+        return self.matched / self.total
+
+    def format_text(self) -> str:
+        return (
+            "Reviewer proposal comparison eval: "
+            f"{self.passed}/{self.total} passed "
+            f"({self.pass_rate:.0%}); "
+            f"model-action match rate {self.match_rate:.0%}; "
+            f"mismatches {self.mismatched}."
+        )

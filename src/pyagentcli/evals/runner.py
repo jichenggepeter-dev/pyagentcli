@@ -16,12 +16,14 @@ from pyagentcli.evals.cases import (
     BUILTIN_CODING_TASKS,
     BUILTIN_RAG_RETRIEVAL_CASES,
     BUILTIN_REAL_MODEL_TRACE_CASES,
+    BUILTIN_REVIEWER_PROPOSAL_COMPARISON_CASES,
     BUILTIN_REVIEWER_EVAL_CASES,
     BUILTIN_TRACE_EVAL_CASES,
     CodingTaskCase,
     EvalCase,
     RagRetrievalCase,
     ReviewerEvalCase,
+    ReviewerProposalComparisonCase,
     TraceEvalCase,
     workspace_for_case,
 )
@@ -30,13 +32,14 @@ from pyagentcli.evals.metrics import (
     EvalSummary,
     RagRetrievalSummary,
     RealModelTraceSummary,
+    ReviewerProposalComparisonSummary,
     ReviewerEvalSummary,
     TraceEvalSummary,
 )
 from pyagentcli.agent.loop import AgentLoop
 from pyagentcli.agent.planner import PlanPreview, PlanRun, PlanRunStatus, PlanStep
 from pyagentcli.agent.reviewer import Reviewer
-from pyagentcli.llm.base import LLMClient
+from pyagentcli.llm.base import LLMClient, LLMResponse, Message
 from pyagentcli.llm.openai_compatible import LocalFallbackClient
 from pyagentcli.memory.project_memory import ProjectMemory
 from pyagentcli.rag.indexer import CodeIndexer
@@ -112,6 +115,21 @@ class ReviewerEvalResult:
     duration_ms: int
 
 
+@dataclass(frozen=True)
+class ReviewerProposalComparisonResult:
+    case_id: str
+    name: str
+    passed: bool
+    message: str
+    deterministic_action: str | None
+    model_action: str | None
+    matched: bool
+    expected_matched: bool
+    confidence: str | None
+    gate_passed: bool
+    duration_ms: int
+
+
 class ApproveAll:
     def request(
         self,
@@ -150,6 +168,8 @@ class EvalRunner:
         list[ReviewerEvalResult],
         RealModelTraceSummary,
         list[TraceEvalResult],
+        ReviewerProposalComparisonSummary,
+        list[ReviewerProposalComparisonResult],
     ]:
         with TemporaryDirectory() as tmp:
             eval_root = Path(tmp)
@@ -159,6 +179,10 @@ class EvalRunner:
             trace_results = [self._run_trace_eval(case) for case in BUILTIN_TRACE_EVAL_CASES]
             trace_results.extend(self._run_agent_trace_case(case, eval_root) for case in BUILTIN_AGENT_TRACE_CASES)
             reviewer_results = [self._run_reviewer_eval(case, eval_root) for case in BUILTIN_REVIEWER_EVAL_CASES]
+            reviewer_proposal_comparison_results = [
+                self._run_reviewer_proposal_comparison(case, eval_root)
+                for case in BUILTIN_REVIEWER_PROPOSAL_COMPARISON_CASES
+            ]
             real_model_trace_results: list[TraceEvalResult] = []
             if include_real_model_trace and real_model_llm is not None:
                 real_model_trace_results = [
@@ -220,6 +244,13 @@ class EvalRunner:
             if include_real_model_trace and real_model_llm is not None
             else (real_model_disabled_reason or "enable with --eval-real-model"),
         )
+        reviewer_proposal_comparison_summary = ReviewerProposalComparisonSummary(
+            total=len(reviewer_proposal_comparison_results),
+            passed=sum(1 for result in reviewer_proposal_comparison_results if result.passed),
+            failed=sum(1 for result in reviewer_proposal_comparison_results if not result.passed),
+            matched=sum(1 for result in reviewer_proposal_comparison_results if result.matched),
+            mismatched=sum(1 for result in reviewer_proposal_comparison_results if not result.matched),
+        )
         report_path = self._write_report(
             results,
             coding_results,
@@ -227,6 +258,7 @@ class EvalRunner:
             trace_results,
             reviewer_results,
             real_model_trace_results,
+            reviewer_proposal_comparison_results,
         )
         return (
             summary,
@@ -242,6 +274,8 @@ class EvalRunner:
             reviewer_results,
             real_model_trace_summary,
             real_model_trace_results,
+            reviewer_proposal_comparison_summary,
+            reviewer_proposal_comparison_results,
         )
 
     def _run_case(self, case: EvalCase, eval_root: Path) -> EvalResult:
@@ -502,6 +536,66 @@ class EvalRunner:
             duration_ms=int((perf_counter() - started) * 1000),
         )
 
+    def _run_reviewer_proposal_comparison(
+        self,
+        case: ReviewerProposalComparisonCase,
+        eval_root: Path,
+    ) -> ReviewerProposalComparisonResult:
+        started = perf_counter()
+        workspace = workspace_for_case(eval_root, EvalCase(case.case_id, case.name, case.goal))
+        workspace.mkdir(parents=True, exist_ok=True)
+        plan = PlanPreview(
+            summary=case.name,
+            steps=[
+                PlanStep(
+                    id=step.id,
+                    title=step.title,
+                    description=step.description,
+                    suggested_tools=list(step.suggested_tools),
+                    risk=step.risk,
+                    status=step.status,
+                    result_summary=step.result_summary,
+                )
+                for step in case.steps
+            ],
+        )
+        run = PlanRun(
+            plan_id=case.case_id,
+            plan=plan,
+            status=PlanRunStatus(case.run_status),
+            goal=case.goal,
+        )
+        report = Reviewer(workspace, llm=_FakeReviewerModel(case.model_response)).review_plan(run)
+        deterministic_action = (
+            report.retry_proposal.recommended_action if report.retry_proposal is not None else None
+        )
+        model_action = report.model_suggestion.recommended_action if report.model_suggestion is not None else None
+        matched = deterministic_action == model_action
+        failures: list[str] = []
+        if deterministic_action != case.expected_deterministic_action:
+            failures.append(
+                f"deterministic_action={deterministic_action!r}, expected {case.expected_deterministic_action!r}"
+            )
+        if model_action != case.expected_model_action:
+            failures.append(f"model_action={model_action!r}, expected {case.expected_model_action!r}")
+        if matched != case.expected_matched:
+            failures.append(f"matched={matched}, expected {case.expected_matched}")
+
+        passed = not failures
+        return ReviewerProposalComparisonResult(
+            case_id=case.case_id,
+            name=case.name,
+            passed=passed,
+            message="passed" if passed else "; ".join(failures),
+            deterministic_action=deterministic_action,
+            model_action=model_action,
+            matched=matched,
+            expected_matched=case.expected_matched,
+            confidence=report.model_suggestion.confidence if report.model_suggestion is not None else None,
+            gate_passed=report.gate.passed,
+            duration_ms=int((perf_counter() - started) * 1000),
+        )
+
     def _write_report(
         self,
         results: list[EvalResult],
@@ -510,6 +604,7 @@ class EvalRunner:
         trace_results: list[TraceEvalResult],
         reviewer_results: list[ReviewerEvalResult],
         real_model_trace_results: list[TraceEvalResult],
+        reviewer_proposal_comparison_results: list[ReviewerProposalComparisonResult],
     ) -> Path:
         self.report_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.report_dir / f"eval_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.jsonl"
@@ -532,7 +627,18 @@ class EvalRunner:
             for result in real_model_trace_results:
                 payload = {"kind": "real_model_trace_eval", **asdict(result)}
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            for result in reviewer_proposal_comparison_results:
+                payload = {"kind": "reviewer_proposal_comparison", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
         return report_path
+
+
+class _FakeReviewerModel:
+    def __init__(self, content: str) -> None:
+        self.content = content
+
+    def chat(self, messages: list[Message], tools: list[dict]) -> LLMResponse:
+        return LLMResponse(content=self.content)
 
 
 def _score_trace(

@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.9：Reviewer Proposal Comparison Eval
+- Phase 2.4：Browser Network Logs
 
 ## Roadmap 总览
 
@@ -638,31 +638,41 @@ User Goal
 
 名称：
 
-- Reviewer Proposal Comparison Eval
+- Browser Network Logs
 
 目标：
 
-- 比较 deterministic Reviewer retry proposal 与可选 model-backed suggestion，评估模型建议是否和安全边界一致。
+- 在现有 local-only Playwright 浏览器工具基础上，增加网络请求和响应摘要，帮助调试本地前端/API 联调。
 
 第一小步：
 
-- 设计 proposal comparison result 字段：deterministic_action、model_action、matched、confidence。
+- 设计 network log 数据字段：method、url、status、resource_type、failure。
 
 第二小步：
 
-- 用 fake reviewer model 覆盖 action matched / mismatched / invalid JSON 降级路径。
+- 增加 `browser_network_logs` 只读工具，仍然限制 local-only URL。
 
 第三小步：
 
-- 将 comparison 写入 eval JSONL report 和 CLI summary。
+- 增加可选 Playwright fixture 测试，捕获本地页面发出的请求。
 
 完成标准：
 
-- deterministic gate 仍是最终安全边界。
-- model suggestion 只能作为 advisory 参与评分。
-- mismatch 能被 eval 捕获。
-- 无真实模型时 fake path 可稳定测试。
+- 外部 URL 仍默认拒绝。
+- 未安装 Playwright 时清晰降级。
+- 有 Playwright 时可捕获本地页面请求和响应状态。
+- 不记录敏感 header 或 body。
 - 全量测试通过。
+
+## 最近完成：Reviewer Proposal Comparison Eval
+
+完成内容：
+
+- 新增 proposal comparison eval fixture：matched retry、mismatched action、invalid JSON downgrade。
+- 新增 comparison result 字段：deterministic_action、model_action、matched、confidence。
+- CLI `--eval` 输出 Reviewer proposal comparison summary。
+- JSONL report 新增 `reviewer_proposal_comparison` 类型。
+- fake reviewer model 稳定覆盖 model suggestion 的 matched / mismatched / inspect 降级路径。
 
 ## 最近完成：Real Model Trace Capture
 

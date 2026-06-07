@@ -10,6 +10,7 @@ It has two layers:
 - captured trace evals
 - Reviewer output evals
 - opt-in real model trace evals
+- Reviewer proposal comparison evals
 
 The default layers do not require a real model. This keeps the scorer deterministic and dependency-light. Real model trace capture is available only through an explicit opt-in flag.
 
@@ -110,6 +111,22 @@ The reported metrics are:
 - proposal action match count
 - suggested-tests match count
 
+## Reviewer Proposal Comparison Evals
+
+Reviewer proposal comparison evals compare deterministic retry proposals with optional model-backed suggestions.
+
+The built-in fixtures cover:
+
+- model action matches deterministic `retry_step`
+- model action mismatches by suggesting `accept`
+- invalid model JSON downgrades to `inspect`
+
+The reported metrics are:
+
+- passed comparison fixtures
+- model-action match rate
+- mismatch count
+
 ## Usage
 
 ```bash
@@ -118,7 +135,7 @@ PYTHONPATH=src python -m pyagentcli \
   --eval
 ```
 
-The CLI prints platform, coding-task, RAG, trace, Reviewer, and real-model trace summaries and writes a JSONL report:
+The CLI prints platform, coding-task, RAG, trace, Reviewer, real-model trace, and Reviewer proposal comparison summaries and writes a JSONL report:
 
 ```text
 .pyagent/evals/eval_YYYYMMDD_HHMMSS.jsonl
@@ -133,6 +150,7 @@ Report lines include a `kind` field:
 {"kind": "trace_eval", "case_id": "trace.update_readme_status", "...": "..."}
 {"kind": "reviewer_eval", "case_id": "reviewer.failed_step", "...": "..."}
 {"kind": "real_model_trace_eval", "case_id": "real_model_trace.list_workspace", "...": "..."}
+{"kind": "reviewer_proposal_comparison", "case_id": "reviewer_proposal_compare.matched_retry", "...": "..."}
 ```
 
 ## Why Start Deterministic
@@ -142,5 +160,5 @@ Agent evaluation should separate platform regressions from model behavior. These
 ## Next Steps
 
 1. Add per-model trace comparison reports.
-2. Add Reviewer proposal comparison evals.
+2. Add browser network log evals.
 3. Add per-retriever comparison reports.

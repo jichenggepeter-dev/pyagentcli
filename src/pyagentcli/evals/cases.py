@@ -85,6 +85,19 @@ class ReviewerEvalCase:
     expected_suggested_tests_min: int = 0
 
 
+@dataclass(frozen=True)
+class ReviewerProposalComparisonCase:
+    case_id: str
+    name: str
+    goal: str
+    run_status: str
+    steps: tuple[ReviewerEvalStep, ...]
+    model_response: str
+    expected_deterministic_action: str | None
+    expected_model_action: str
+    expected_matched: bool
+
+
 BUILTIN_CASES = [
     EvalCase(
         case_id="tools.registry",
@@ -291,6 +304,79 @@ BUILTIN_REAL_MODEL_TRACE_CASES = [
         expected_final_contains="README.md",
         forbidden_tools=("write_file", "edit_file", "run_shell", "browser_interact"),
     )
+]
+
+
+BUILTIN_REVIEWER_PROPOSAL_COMPARISON_CASES = [
+    ReviewerProposalComparisonCase(
+        case_id="reviewer_proposal_compare.matched_retry",
+        name="Reviewer model matches retry proposal",
+        goal="Run focused tests.",
+        run_status="failed",
+        steps=(
+            ReviewerEvalStep(
+                id="S1",
+                title="Run tests",
+                description="Run focused tests.",
+                suggested_tools=("run_shell",),
+                risk="EXECUTE",
+                status="failed",
+                result_summary="pytest failed.",
+            ),
+        ),
+        model_response=(
+            '{"summary":"Retry the failed step.","risk_notes":["Verification failed."],'
+            '"suggested_tests":["Re-run pytest."],"recommended_action":"retry_step","confidence":"high"}'
+        ),
+        expected_deterministic_action="retry_step",
+        expected_model_action="retry_step",
+        expected_matched=True,
+    ),
+    ReviewerProposalComparisonCase(
+        case_id="reviewer_proposal_compare.mismatched_action",
+        name="Reviewer model mismatch is captured",
+        goal="Run focused tests.",
+        run_status="failed",
+        steps=(
+            ReviewerEvalStep(
+                id="S1",
+                title="Run tests",
+                description="Run focused tests.",
+                suggested_tools=("run_shell",),
+                risk="EXECUTE",
+                status="failed",
+                result_summary="pytest failed.",
+            ),
+        ),
+        model_response=(
+            '{"summary":"Accept the work.","risk_notes":[],"suggested_tests":[],'
+            '"recommended_action":"accept","confidence":"medium"}'
+        ),
+        expected_deterministic_action="retry_step",
+        expected_model_action="accept",
+        expected_matched=False,
+    ),
+    ReviewerProposalComparisonCase(
+        case_id="reviewer_proposal_compare.invalid_json",
+        name="Reviewer model invalid JSON downgrades to inspect",
+        goal="Inspect skipped docs update.",
+        run_status="success",
+        steps=(
+            ReviewerEvalStep(
+                id="S1",
+                title="Inspect docs",
+                description="Inspect docs.",
+                suggested_tools=("read_file",),
+                risk="READ",
+                status="skipped",
+                result_summary="User skipped docs inspection.",
+            ),
+        ),
+        model_response="not json",
+        expected_deterministic_action="user_decision",
+        expected_model_action="inspect",
+        expected_matched=False,
+    ),
 ]
 
 

@@ -60,6 +60,6 @@ For a local coding agent, the first reviewer should be predictable and auditable
 
 ## Next Steps
 
-1. Compare deterministic Reviewer proposals against model-backed suggestions in evals.
-2. Include git diff summaries when the workspace is a git repository.
-3. Add per-model trace comparison reports.
+1. Include git diff summaries when the workspace is a git repository.
+2. Add per-model trace comparison reports.
+3. Add richer risk scoring for changed files.

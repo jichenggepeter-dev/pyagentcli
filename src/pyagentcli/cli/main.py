@@ -367,6 +367,8 @@ def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = 
         reviewer_results,
         real_model_trace_summary,
         real_model_trace_results,
+        reviewer_proposal_comparison_summary,
+        reviewer_proposal_comparison_results,
     ) = EvalRunner(
         workspace_root=config.workspace_root
     ).run_builtin(
@@ -381,6 +383,7 @@ def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = 
         trace_summary.format_text(),
         reviewer_summary.format_text(),
         real_model_trace_summary.format_text(),
+        reviewer_proposal_comparison_summary.format_text(),
         f"Report: {report_path}",
         "",
     ]
@@ -421,6 +424,18 @@ def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = 
         status = "PASS" if result.passed else "FAIL"
         lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
         lines.append(f"  tools: {', '.join(result.used_tools) or '<none>'}")
+        if not result.passed:
+            lines.append(f"  {result.message}")
+    for result in reviewer_proposal_comparison_results:
+        status = "PASS" if result.passed else "FAIL"
+        lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
+        lines.append(
+            "  "
+            f"deterministic={result.deterministic_action or '<none>'}; "
+            f"model={result.model_action or '<none>'}; "
+            f"matched={result.matched}; "
+            f"confidence={result.confidence or '<none>'}"
+        )
         if not result.passed:
             lines.append(f"  {result.message}")
     return "\n".join(lines).rstrip()

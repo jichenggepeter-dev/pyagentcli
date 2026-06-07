@@ -119,6 +119,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - Reviewer output scoring for gate decisions, retry proposals, and suggested tests
 - opt-in real model trace capture behind `--eval-real-model`
 - real model trace reports written as `real_model_trace_eval`
+- Reviewer proposal comparison evals for deterministic and model-backed actions
+- model suggestion mismatches and invalid JSON downgrade paths are scored
 
 ### Release and Packaging v0.1
 
@@ -186,11 +188,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Reviewer Proposal Comparison Eval**
-   Compare deterministic Reviewer proposals against optional model-backed suggestions.
-
-2. **Browser Network Logs**
+1. **Browser Network Logs**
    Add local-only Playwright network request and response inspection.
 
-3. **Per-Model Trace Comparison**
+2. **Per-Model Trace Comparison**
    Compare real model trace results across model configs without changing default local evals.
+
+3. **Git Diff-Aware Reviewer**
+   Include git diff summaries in Reviewer artifacts when the workspace is a git repository.

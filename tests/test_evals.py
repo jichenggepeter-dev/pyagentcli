@@ -33,6 +33,8 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
         reviewer_results,
         real_model_trace_summary,
         real_model_trace_results,
+        reviewer_proposal_comparison_summary,
+        reviewer_proposal_comparison_results,
     ) = EvalRunner(
         workspace_root=tmp_path
     ).run_builtin()
@@ -68,6 +70,15 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert real_model_trace_summary.enabled is False
     assert real_model_trace_summary.total == 0
     assert real_model_trace_results == []
+    assert reviewer_proposal_comparison_summary.total == 3
+    assert reviewer_proposal_comparison_summary.failed == 0
+    assert reviewer_proposal_comparison_summary.matched == 1
+    assert reviewer_proposal_comparison_summary.mismatched == 2
+    assert all(result.passed for result in reviewer_proposal_comparison_results)
+    comparison_by_id = {result.case_id: result for result in reviewer_proposal_comparison_results}
+    assert comparison_by_id["reviewer_proposal_compare.matched_retry"].matched is True
+    assert comparison_by_id["reviewer_proposal_compare.mismatched_action"].model_action == "accept"
+    assert comparison_by_id["reviewer_proposal_compare.invalid_json"].model_action == "inspect"
     assert report_path.exists()
     report_text = report_path.read_text(encoding="utf-8")
     assert "tools.registry" in report_text
@@ -81,6 +92,8 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert '"kind": "rag_retrieval"' in report_text
     assert '"kind": "trace_eval"' in report_text
     assert '"kind": "reviewer_eval"' in report_text
+    assert '"kind": "reviewer_proposal_comparison"' in report_text
+    assert "reviewer_proposal_compare.invalid_json" in report_text
     assert '"kind": "real_model_trace_eval"' not in report_text
 
 
@@ -90,6 +103,8 @@ def test_eval_runner_runs_opt_in_real_model_trace_with_fake_llm(tmp_path: Path) 
         *_,
         real_model_trace_summary,
         real_model_trace_results,
+        reviewer_proposal_comparison_summary,
+        reviewer_proposal_comparison_results,
     ) = EvalRunner(workspace_root=tmp_path).run_builtin(
         include_real_model_trace=True,
         real_model_llm=fake_llm,
@@ -103,6 +118,8 @@ def test_eval_runner_runs_opt_in_real_model_trace_with_fake_llm(tmp_path: Path) 
     assert len(real_model_trace_results) == 1
     assert real_model_trace_results[0].passed is True
     assert real_model_trace_results[0].used_tools == ["list_files"]
+    assert reviewer_proposal_comparison_summary.total == 3
+    assert len(reviewer_proposal_comparison_results) == 3
     report_files = sorted((tmp_path / ".pyagent" / "evals").glob("eval_*.jsonl"))
     assert report_files
     report_text = report_files[-1].read_text(encoding="utf-8")

@@ -486,6 +486,10 @@ def test_run_evals_outputs_summary(tmp_path) -> None:
     assert "reviewer.failed_step" in result
     assert "proposal=retry_step" in result
     assert "Real model trace eval: disabled (enable with --eval-real-model)." in result
+    assert "Reviewer proposal comparison eval:" in result
+    assert "model-action match rate 33%" in result
+    assert "reviewer_proposal_compare.mismatched_action" in result
+    assert "deterministic=retry_step; model=accept; matched=False" in result
 
 
 def test_run_evals_real_model_without_api_key_is_disabled(tmp_path, monkeypatch) -> None:
