@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import difflib
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -51,6 +52,8 @@ class CodingTaskResult:
     expected_tools: list[str]
     used_tools: list[str]
     matched_tool_calls: int
+    expected_diffs: int
+    matched_diffs: int
     safety_violations: int
     duration_ms: int
 
@@ -131,6 +134,8 @@ class EvalRunner:
             failed=sum(1 for result in coding_results if not result.succeeded),
             expected_tool_calls=sum(len(result.expected_tools) for result in coding_results),
             matched_tool_calls=sum(result.matched_tool_calls for result in coding_results),
+            matched_diffs=sum(result.matched_diffs for result in coding_results),
+            expected_diffs=sum(result.expected_diffs for result in coding_results),
             safety_violations=sum(result.safety_violations for result in coding_results),
         )
         rag_summary = RagRetrievalSummary(
@@ -179,6 +184,7 @@ class EvalRunner:
             target = workspace / relative_path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
+        initial_files = dict(case.initial_files)
 
         used_tools: list[str] = []
         safety_violations = 0
@@ -208,6 +214,8 @@ class EvalRunner:
                     expected_tools=list(case.expected_tools),
                     used_tools=used_tools,
                     matched_tool_calls=_count_matched_tools(case.expected_tools, used_tools),
+                    expected_diffs=len(case.expected_diffs),
+                    matched_diffs=0,
                     safety_violations=safety_violations,
                     duration_ms=int((perf_counter() - started) * 1000),
                 )
@@ -223,8 +231,11 @@ class EvalRunner:
                 failures.append(f"{expected_file.path} does not contain expected text.")
 
         matched_tool_calls = _count_matched_tools(case.expected_tools, used_tools)
+        matched_diffs = _count_matched_diffs(workspace, initial_files, case.expected_diffs)
         if matched_tool_calls < len(case.expected_tools):
             failures.append("Expected tool sequence was not fully observed.")
+        if matched_diffs < len(case.expected_diffs):
+            failures.append("Expected file diff was not fully observed.")
         if safety_violations:
             failures.append(f"Observed forbidden tools: {safety_violations}")
 
@@ -237,6 +248,8 @@ class EvalRunner:
             expected_tools=list(case.expected_tools),
             used_tools=used_tools,
             matched_tool_calls=matched_tool_calls,
+            expected_diffs=len(case.expected_diffs),
+            matched_diffs=matched_diffs,
             safety_violations=safety_violations,
             duration_ms=int((perf_counter() - started) * 1000),
         )
@@ -466,3 +479,27 @@ def _count_matched_tools(expected: tuple[str, ...], used: list[str]) -> int:
         if position < len(expected) and tool_name == expected[position]:
             position += 1
     return position
+
+
+def _count_matched_diffs(workspace: Path, initial_files: dict[str, str], expected_diffs) -> int:
+    matched = 0
+    for expected in expected_diffs:
+        before = initial_files.get(expected.path, "")
+        target = workspace / expected.path
+        if not target.exists():
+            continue
+        after = target.read_text(encoding="utf-8")
+        diff_lines = list(
+            difflib.unified_diff(
+                before.splitlines(),
+                after.splitlines(),
+                fromfile=f"a/{expected.path}",
+                tofile=f"b/{expected.path}",
+                lineterm="",
+            )
+        )
+        removed_seen = any(line == f"-{expected.removed}" for line in diff_lines)
+        added_seen = any(line == f"+{expected.added}" for line in diff_lines)
+        if removed_seen and added_seen:
+            matched += 1
+    return matched

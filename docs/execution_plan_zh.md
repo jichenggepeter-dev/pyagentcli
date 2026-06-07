@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.5：Expected Diff Scoring
+- Phase 4.6：Reviewer Output Scoring
 
 ## Roadmap 总览
 
@@ -638,27 +638,28 @@ User Goal
 
 名称：
 
-- Expected Diff Scoring
+- Reviewer Output Scoring
 
 目标：
 
-- 让 coding/trace eval 不只看目标文本是否存在，也能评分文件 diff 是否符合预期。
+- 将 Reviewer gate、retry proposal、suggested tests 纳入 eval report，评估复核质量。
 
 第一小步：
 
-- 为 eval case 增加 expected diff contract。
+- 设计 reviewer eval result 字段：gate_passed、proposal_action、suggested_tests_count。
 
 第二小步：
 
-- 对 README TODO -> READY 这类任务生成并比较 diff。
+- 用 failed/skipped/success plan fixture 评估 Reviewer 输出。
 
 第三小步：
 
-- 将 diff 评分结果写入 JSONL report。
+- 将 Reviewer scoring 写入 JSONL report 和 CLI summary。
 
 完成标准：
 
-- eval 能报告 expected diff 是否命中。
-- trace/coding task report 包含 diff 评分字段。
+- eval 能检查 Reviewer 是否 block 应该 block 的 plan。
+- retry proposal 动作符合 step 状态。
+- suggested tests 不为空时可计分。
 - 不需要真实 API key 时仍有 fallback 测试路径。
 - 全量测试通过。

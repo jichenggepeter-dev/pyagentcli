@@ -113,6 +113,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - RAG retrieval evals for Python symbols, TypeScript symbols, and dependency context
 - captured trace eval with expected tool sequence, forbidden tool checks, and final output scoring
 - AgentLoop trace capture with local fallback trace eval
+- expected diff scoring for coding task evals
 
 ### Release and Packaging v0.1
 
@@ -179,8 +180,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Expected Diff Scoring**
-   Score file diffs in coding and trace evals, not only expected text containment.
+1. **Reviewer Output Scoring**
+   Feed Reviewer gate, retry proposals, and suggested tests into eval scoring.
 
 2. **Model-backed Reviewer Proposal**
    Compare deterministic retry proposals against model-backed reviewer suggestions.

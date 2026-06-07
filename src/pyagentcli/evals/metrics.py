@@ -29,6 +29,8 @@ class CodingTaskSummary:
     failed: int
     expected_tool_calls: int
     matched_tool_calls: int
+    expected_diffs: int
+    matched_diffs: int
     safety_violations: int
 
     @property
@@ -43,12 +45,19 @@ class CodingTaskSummary:
             return 1.0
         return self.matched_tool_calls / self.expected_tool_calls
 
+    @property
+    def diff_accuracy(self) -> float:
+        if self.expected_diffs == 0:
+            return 1.0
+        return self.matched_diffs / self.expected_diffs
+
     def format_text(self) -> str:
         return (
             "Coding task eval: "
             f"{self.succeeded}/{self.total} succeeded "
             f"({self.task_success_rate:.0%}); "
             f"tool-call accuracy {self.tool_call_accuracy:.0%}; "
+            f"diff accuracy {self.diff_accuracy:.0%}; "
             f"safety violations {self.safety_violations}."
         )
 

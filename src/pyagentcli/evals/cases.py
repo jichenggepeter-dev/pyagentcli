@@ -19,6 +19,13 @@ class ExpectedFile:
 
 
 @dataclass(frozen=True)
+class ExpectedDiff:
+    path: str
+    removed: str
+    added: str
+
+
+@dataclass(frozen=True)
 class CodingTaskCase:
     case_id: str
     name: str
@@ -26,6 +33,7 @@ class CodingTaskCase:
     initial_files: dict[str, str]
     expected_files: tuple[ExpectedFile, ...]
     expected_tools: tuple[str, ...]
+    expected_diffs: tuple[ExpectedDiff, ...] = ()
     forbidden_tools: tuple[str, ...] = ()
     simulated_tool_calls: tuple[dict[str, Any], ...] = ()
 
@@ -85,6 +93,9 @@ BUILTIN_CODING_TASKS = [
         initial_files={"README.md": "Project status: TODO\n"},
         expected_files=(ExpectedFile(path="README.md", contains="Project status: READY"),),
         expected_tools=("read_file", "edit_file"),
+        expected_diffs=(
+            ExpectedDiff(path="README.md", removed="Project status: TODO", added="Project status: READY"),
+        ),
         forbidden_tools=("run_shell",),
         simulated_tool_calls=(
             {"name": "read_file", "arguments": {"path": "README.md"}, "ok": True},

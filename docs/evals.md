@@ -35,6 +35,7 @@ The reported metrics are:
 
 - task success rate
 - tool-call accuracy
+- diff accuracy
 - safety violation count
 
 ## RAG Retrieval Evals
@@ -61,6 +62,8 @@ The first trace eval checks:
 - expected tool sequence
 - forbidden tool usage
 - final output containment
+
+Coding task evals also score expected file diffs. The first case verifies that the actual unified diff removes `Project status: TODO` and adds `Project status: READY`.
 
 This creates the scoring contract for future real Agent runs. Once the Agent loop can emit captured traces, those traces can be scored with the same metrics.
 
@@ -95,7 +98,6 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Add expected diff scoring, not only expected text containment.
-2. Feed Reviewer output into eval scoring.
-3. Add real model trace capture behind explicit API configuration.
-4. Add per-model and per-retriever comparison reports.
+1. Feed Reviewer output into eval scoring.
+2. Add real model trace capture behind explicit API configuration.
+3. Add per-model and per-retriever comparison reports.

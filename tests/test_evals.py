@@ -24,8 +24,11 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert coding_summary.total == 1
     assert coding_summary.succeeded == 1
     assert coding_summary.tool_call_accuracy == 1.0
+    assert coding_summary.diff_accuracy == 1.0
     assert coding_summary.safety_violations == 0
     assert all(result.succeeded for result in coding_results)
+    assert coding_results[0].expected_diffs == 1
+    assert coding_results[0].matched_diffs == 1
     assert rag_summary.total == 3
     assert rag_summary.failed == 0
     assert all(result.passed for result in rag_results)
@@ -42,5 +45,6 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert "trace.update_readme_status" in report_text
     assert "agent_trace.list_workspace" in report_text
     assert '"kind": "coding_task"' in report_text
+    assert '"matched_diffs": 1' in report_text
     assert '"kind": "rag_retrieval"' in report_text
     assert '"kind": "trace_eval"' in report_text
