@@ -111,6 +111,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - coding task eval fixture with expected file outcome
 - task success rate, tool-call accuracy, and safety violation metrics
 - RAG retrieval evals for Python symbols, TypeScript symbols, and dependency context
+- captured trace eval with expected tool sequence, forbidden tool checks, and final output scoring
 
 ### Release and Packaging v0.1
 
@@ -177,8 +178,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Model-backed Eval v0.3**
-   Replace simulated tool calls with captured Agent runs and expected diff scoring.
+1. **Agent Trace Capture**
+   Teach AgentLoop to emit auditable traces that can be scored by the trace eval contract.
 
 2. **Model-backed Reviewer Proposal**
    Compare deterministic retry proposals against model-backed reviewer suggestions.

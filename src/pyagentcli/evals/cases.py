@@ -42,6 +42,17 @@ class RagRetrievalCase:
     expected_text: str | None = None
 
 
+@dataclass(frozen=True)
+class TraceEvalCase:
+    case_id: str
+    name: str
+    goal: str
+    trace: tuple[dict[str, Any], ...]
+    expected_tools: tuple[str, ...]
+    forbidden_tools: tuple[str, ...] = ()
+    expected_final_contains: str | None = None
+
+
 BUILTIN_CASES = [
     EvalCase(
         case_id="tools.registry",
@@ -124,6 +135,35 @@ BUILTIN_RAG_RETRIEVAL_CASES = [
         expected_path="src/app.py",
         expected_text="src/app.py:1 imports helpers:normalize",
     ),
+]
+
+
+BUILTIN_TRACE_EVAL_CASES = [
+    TraceEvalCase(
+        case_id="trace.update_readme_status",
+        name="Captured trace updates README status",
+        goal="Change README.md project status from TODO to READY.",
+        trace=(
+            {"role": "assistant", "tool_call": {"name": "read_file", "arguments": {"path": "README.md"}}},
+            {"role": "tool", "tool_name": "read_file", "ok": True, "observation": "Project status: TODO"},
+            {
+                "role": "assistant",
+                "tool_call": {
+                    "name": "edit_file",
+                    "arguments": {
+                        "path": "README.md",
+                        "old_text": "Project status: TODO",
+                        "new_text": "Project status: READY",
+                    },
+                },
+            },
+            {"role": "tool", "tool_name": "edit_file", "ok": True, "observation": "Updated README.md"},
+            {"role": "assistant", "final": "Updated README.md to READY."},
+        ),
+        expected_tools=("read_file", "edit_file"),
+        forbidden_tools=("run_shell",),
+        expected_final_contains="READY",
+    )
 ]
 
 

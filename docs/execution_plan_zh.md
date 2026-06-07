@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.3：Model-backed Eval v0.3
+- Phase 4.4：Agent Trace Capture
 
 ## Roadmap 总览
 
@@ -638,27 +638,27 @@ User Goal
 
 名称：
 
-- Model-backed Eval v0.3
+- Agent Trace Capture
 
 目标：
 
-- 从模拟工具调用评估升级到真实 Agent run / captured trace / expected diff 评分。
+- 让真实 AgentLoop 可以产出 goal、tool calls、observations、final output 的可审计 trace。
 
 第一小步：
 
-- 设计 captured agent run 的 trace schema，记录 goal、tool calls、observations、final output。
+- 在 AgentLoop 中增加可选 trace collector，不影响普通 run 返回值。
 
 第二小步：
 
-- 将一个现有 coding task eval 从模拟执行迁移到真实 Agent loop 或可回放 trace。
+- 用 fallback 或 fake LLM 跑一个本地任务，保存 captured trace。
 
 第三小步：
 
-- 评分 expected diff、工具调用准确率和 safety violation。
+- 将 captured trace 交给现有 trace eval scoring。
 
 完成标准：
 
-- eval 不只检查静态函数，也能评估 Agent 行为。
-- trace 可审计、可复现。
+- AgentLoop trace 可审计、可复现。
+- 普通 Agent run 行为不变。
 - 不需要真实 API key 时仍有 fallback 测试路径。
 - 全量测试通过。

@@ -13,12 +13,14 @@ from pyagentcli.evals.cases import (
     BUILTIN_CASES,
     BUILTIN_CODING_TASKS,
     BUILTIN_RAG_RETRIEVAL_CASES,
+    BUILTIN_TRACE_EVAL_CASES,
     CodingTaskCase,
     EvalCase,
     RagRetrievalCase,
+    TraceEvalCase,
     workspace_for_case,
 )
-from pyagentcli.evals.metrics import CodingTaskSummary, EvalSummary, RagRetrievalSummary
+from pyagentcli.evals.metrics import CodingTaskSummary, EvalSummary, RagRetrievalSummary, TraceEvalSummary
 from pyagentcli.memory.project_memory import ProjectMemory
 from pyagentcli.rag.indexer import CodeIndexer
 from pyagentcli.safety.approval import ApprovalResult
@@ -62,6 +64,20 @@ class RagRetrievalResult:
     duration_ms: int
 
 
+@dataclass(frozen=True)
+class TraceEvalResult:
+    case_id: str
+    name: str
+    passed: bool
+    message: str
+    expected_tools: list[str]
+    used_tools: list[str]
+    matched_tool_calls: int
+    safety_violations: int
+    final_output: str
+    duration_ms: int
+
+
 class ApproveAll:
     def request(
         self,
@@ -90,12 +106,15 @@ class EvalRunner:
         list[CodingTaskResult],
         RagRetrievalSummary,
         list[RagRetrievalResult],
+        TraceEvalSummary,
+        list[TraceEvalResult],
     ]:
         with TemporaryDirectory() as tmp:
             eval_root = Path(tmp)
             results = [self._run_case(case, eval_root) for case in BUILTIN_CASES]
             coding_results = [self._run_coding_task(case, eval_root) for case in BUILTIN_CODING_TASKS]
             rag_results = [self._run_rag_retrieval(case, eval_root) for case in BUILTIN_RAG_RETRIEVAL_CASES]
+            trace_results = [self._run_trace_eval(case) for case in BUILTIN_TRACE_EVAL_CASES]
 
         summary = EvalSummary(
             total=len(results),
@@ -115,8 +134,16 @@ class EvalRunner:
             passed=sum(1 for result in rag_results if result.passed),
             failed=sum(1 for result in rag_results if not result.passed),
         )
-        report_path = self._write_report(results, coding_results, rag_results)
-        return summary, results, report_path, coding_summary, coding_results, rag_summary, rag_results
+        trace_summary = TraceEvalSummary(
+            total=len(trace_results),
+            passed=sum(1 for result in trace_results if result.passed),
+            failed=sum(1 for result in trace_results if not result.passed),
+            expected_tool_calls=sum(len(result.expected_tools) for result in trace_results),
+            matched_tool_calls=sum(result.matched_tool_calls for result in trace_results),
+            safety_violations=sum(result.safety_violations for result in trace_results),
+        )
+        report_path = self._write_report(results, coding_results, rag_results, trace_results)
+        return summary, results, report_path, coding_summary, coding_results, rag_summary, rag_results, trace_summary, trace_results
 
     def _run_case(self, case: EvalCase, eval_root: Path) -> EvalResult:
         started = perf_counter()
@@ -249,11 +276,52 @@ class EvalRunner:
             duration_ms=int((perf_counter() - started) * 1000),
         )
 
+    def _run_trace_eval(self, case: TraceEvalCase) -> TraceEvalResult:
+        started = perf_counter()
+        used_tools: list[str] = []
+        safety_violations = 0
+        final_output = ""
+        failures: list[str] = []
+
+        for event in case.trace:
+            tool_call = event.get("tool_call") if isinstance(event.get("tool_call"), dict) else None
+            if tool_call is not None:
+                tool_name = str(tool_call.get("name") or "")
+                if tool_name:
+                    used_tools.append(tool_name)
+                    if tool_name in case.forbidden_tools:
+                        safety_violations += 1
+            if "final" in event:
+                final_output = str(event.get("final") or "")
+
+        matched_tool_calls = _count_matched_tools(case.expected_tools, used_tools)
+        if matched_tool_calls < len(case.expected_tools):
+            failures.append("Expected trace tool sequence was not fully observed.")
+        if safety_violations:
+            failures.append(f"Observed forbidden tools: {safety_violations}")
+        if case.expected_final_contains and case.expected_final_contains not in final_output:
+            failures.append("Final output did not contain expected text.")
+
+        passed = not failures
+        return TraceEvalResult(
+            case_id=case.case_id,
+            name=case.name,
+            passed=passed,
+            message="passed" if passed else "; ".join(failures),
+            expected_tools=list(case.expected_tools),
+            used_tools=used_tools,
+            matched_tool_calls=matched_tool_calls,
+            safety_violations=safety_violations,
+            final_output=final_output,
+            duration_ms=int((perf_counter() - started) * 1000),
+        )
+
     def _write_report(
         self,
         results: list[EvalResult],
         coding_results: list[CodingTaskResult],
         rag_results: list[RagRetrievalResult],
+        trace_results: list[TraceEvalResult],
     ) -> Path:
         self.report_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.report_dir / f"eval_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.jsonl"
@@ -266,6 +334,9 @@ class EvalRunner:
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in rag_results:
                 payload = {"kind": "rag_retrieval", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            for result in trace_results:
+                payload = {"kind": "trace_eval", **asdict(result)}
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
         return report_path
 

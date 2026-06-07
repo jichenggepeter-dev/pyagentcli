@@ -476,6 +476,8 @@ def test_run_evals_outputs_summary(tmp_path) -> None:
     assert "Eval summary:" in result
     assert "4/4 passed" in result
     assert "tools.registry" in result
+    assert "Trace eval:" in result
+    assert "trace.update_readme_status" in result
 
 
 def test_index_workspace_builds_index(tmp_path) -> None:

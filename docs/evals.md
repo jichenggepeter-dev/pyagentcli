@@ -1,4 +1,4 @@
-# Eval Harness v0.2
+# Eval Harness v0.3
 
 Eval Harness gives PyAgentCLI a repeatable local evaluation loop.
 
@@ -7,8 +7,9 @@ It has two layers:
 - platform evals
 - coding task evals
 - RAG retrieval evals
+- captured trace evals
 
-Neither layer requires a real model yet. This keeps the scorer deterministic before model-backed execution is added.
+These layers do not require a real model yet. This keeps the scorer deterministic before model-backed execution is added.
 
 ## Platform Evals
 
@@ -46,6 +47,23 @@ RAG retrieval evals check whether the retrieval layer returns the expected conte
 
 These evals do not call a model. They build fixture workspaces, rebuild the local index, and check deterministic retrieval output.
 
+## Captured Trace Evals
+
+Trace evals score an auditable Agent-like run trace:
+
+- user goal
+- assistant tool calls
+- tool observations
+- final assistant output
+
+The first trace eval checks:
+
+- expected tool sequence
+- forbidden tool usage
+- final output containment
+
+This creates the scoring contract for future real Agent runs. Once the Agent loop can emit captured traces, those traces can be scored with the same metrics.
+
 ## Usage
 
 ```bash
@@ -54,7 +72,7 @@ PYTHONPATH=src python -m pyagentcli \
   --eval
 ```
 
-The CLI prints platform and coding-task summaries and writes a JSONL report:
+The CLI prints platform, coding-task, RAG, and trace summaries and writes a JSONL report:
 
 ```text
 .pyagent/evals/eval_YYYYMMDD_HHMMSS.jsonl
@@ -66,6 +84,7 @@ Report lines include a `kind` field:
 {"kind": "platform", "case_id": "tools.registry", "...": "..."}
 {"kind": "coding_task", "case_id": "coding.update_readme_status", "...": "..."}
 {"kind": "rag_retrieval", "case_id": "rag_retrieval.typescript_symbol", "...": "..."}
+{"kind": "trace_eval", "case_id": "trace.update_readme_status", "...": "..."}
 ```
 
 ## Why Start Deterministic
@@ -74,7 +93,7 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Replace simulated tool calls with captured Agent runs.
+1. Add Agent loop trace capture.
 2. Add expected diff scoring, not only expected text containment.
 3. Feed Reviewer output into eval scoring.
 4. Add per-model and per-retriever comparison reports.

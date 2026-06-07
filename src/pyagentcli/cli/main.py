@@ -340,10 +340,27 @@ def show_stale_memory(days: int, *, workspace: str | None = None) -> str:
 
 def run_evals(*, workspace: str | None = None) -> str:
     config = load_config(workspace=workspace, interactive=False)
-    summary, results, report_path, coding_summary, coding_results, rag_summary, rag_results = EvalRunner(
+    (
+        summary,
+        results,
+        report_path,
+        coding_summary,
+        coding_results,
+        rag_summary,
+        rag_results,
+        trace_summary,
+        trace_results,
+    ) = EvalRunner(
         workspace_root=config.workspace_root
     ).run_builtin()
-    lines = [summary.format_text(), coding_summary.format_text(), rag_summary.format_text(), f"Report: {report_path}", ""]
+    lines = [
+        summary.format_text(),
+        coding_summary.format_text(),
+        rag_summary.format_text(),
+        trace_summary.format_text(),
+        f"Report: {report_path}",
+        "",
+    ]
     for result in results:
         status = "PASS" if result.passed else "FAIL"
         lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
@@ -358,6 +375,12 @@ def run_evals(*, workspace: str | None = None) -> str:
     for result in rag_results:
         status = "PASS" if result.passed else "FAIL"
         lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
+        if not result.passed:
+            lines.append(f"  {result.message}")
+    for result in trace_results:
+        status = "PASS" if result.passed else "FAIL"
+        lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
+        lines.append(f"  tools: {', '.join(result.used_tools) or '<none>'}")
         if not result.passed:
             lines.append(f"  {result.message}")
     return "\n".join(lines).rstrip()
