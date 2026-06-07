@@ -357,9 +357,10 @@ def test_review_gate_blocks_successful_plan_with_skipped_step(tmp_path) -> None:
     assert reviewed.status == PlanRunStatus.FAILED
     assert reviewed.review_result is not None
     assert "Gate: block" in reviewed.review_result
+    assert "Retry proposal:" in reviewed.review_result
     assert reviewed.handoffs[-1].role == "reviewer"
     assert reviewed.handoffs[-1].status == "blocked"
-    assert "retry, explicitly skip" in (reviewed.handoffs[-1].next_action or "")
+    assert reviewed.handoffs[-1].next_action == "user_decision"
 
 
 def test_set_step_status_rejects_invalid_status(tmp_path) -> None:

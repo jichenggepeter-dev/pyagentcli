@@ -115,6 +115,28 @@ The Reviewer also writes a handoff recommendation, such as:
 
 Reviewer recommendations do not automatically retry or execute tools. The user still decides whether to resume, retry, skip, or accept.
 
+## Retry Proposal
+
+When the Reviewer gate blocks, PyAgentCLI can include a read-only retry proposal:
+
+```text
+Retry proposal:
+- Recommended action: retry_step
+- Target step: S2
+- Reason: The step failed during execution.
+- Suggested command: `pyagent --retry-step PLAN_ID S2`
+- Requires approval: yes
+```
+
+Proposal behavior:
+
+- `failed` step -> propose `retry_step`
+- `skipped` step -> propose a user decision with an optional retry command
+- `cancelled` step -> propose `resume_plan`
+- `success` plan -> no retry proposal
+
+The proposal is only text stored in the review and plan output. It does not execute tools or retry automatically.
+
 ## Why This Matters
 
 This prevents a common agent failure mode:
@@ -139,4 +161,4 @@ What did the reviewer recommend next?
 
 - Add model-backed Reviewer proposal generation using the existing reviewer role config.
 - Feed Reviewer gate outcomes into eval scoring.
-- Add model-backed retry proposal generation while keeping execution user-approved.
+- Compare deterministic retry proposals against model-backed proposals in evals.

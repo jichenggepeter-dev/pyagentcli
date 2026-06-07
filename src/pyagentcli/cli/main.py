@@ -696,6 +696,9 @@ def _review_plan_execution(workspace_root, store: PlanStore, run: PlanRun) -> Pl
     status = run.status
     if run.status == PlanRunStatus.SUCCESS and not report.gate.passed:
         status = PlanRunStatus.FAILED
+    reviewer_next_action = report.handoff_recommendation
+    if report.retry_proposal is not None:
+        reviewer_next_action = report.retry_proposal.recommended_action
     return store.save(
         PlanRun(
             plan_id=run.plan_id,
@@ -711,7 +714,7 @@ def _review_plan_execution(workspace_root, store: PlanStore, run: PlanRun) -> Pl
                     summary="Reviewed completed plan execution.",
                     status="passed" if report.gate.passed else "blocked",
                     detail=report.gate.format_text(),
-                    next_action=report.handoff_recommendation,
+                    next_action=reviewer_next_action,
                 ),
             ],
             created_at=run.created_at,

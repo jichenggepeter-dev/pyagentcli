@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 3.6：Reviewer Retry Proposal
+- Phase 2.5：Advanced Browser Tools
 
 ## Roadmap 总览
 
@@ -492,6 +492,7 @@ enabled = true
 
 - 已完成 role contract、Reviewer gate、Planner/Executor/Reviewer 持久化 handoff、Reviewer 下一步建议。
 - 已完成角色级 model/prompt 配置入口：Planner 和 Executor 已接入，Reviewer 配置已保留给 proposal 生成。
+- 已完成只读 Reviewer retry proposal：failed/skipped/cancelled 生成建议命令，但不自动执行。
 
 目标：
 
@@ -637,27 +638,27 @@ User Goal
 
 名称：
 
-- Reviewer Retry Proposal
+- Advanced Browser Tools
 
 目标：
 
-- 在 Reviewer gate 之后生成只读 retry proposal，帮助用户决定 retry、resume、skip 或 accept。
+- 从本地 HTML/localhost 文本 inspection 升级到 Playwright 驱动的浏览器调试能力。
 
 第一小步：
 
-- 基于 failed/skipped/cancelled step 生成结构化 retry proposal。
+- 新增 Playwright 可选依赖检测和失败降级提示，不强制安装。
 
 第二小步：
 
-- proposal 只写入 plan/review，不自动执行任何工具。
+- 提供 DOM snapshot、console log、screenshot 的只读工具形态。
 
 第三小步：
 
-- 将 proposal 纳入 eval 或 reviewer 测试，检查不越权。
+- 保持 external URL 默认拒绝，localhost/file 工作区路径优先。
 
 完成标准：
 
-- Reviewer proposal 可解释下一步。
-- handoff JSON 向后兼容。
-- retry proposal 不自动执行。
+- 没有 Playwright 时现有 `inspect_page` 仍可用。
+- 浏览器工具默认只读。
+- 外部 URL 不默认开放。
 - 全量测试通过。

@@ -6,7 +6,28 @@ from pathlib import Path
 from typing import Any
 
 from pyagentcli.agent.contracts import ReviewerGateDecision, ReviewerInputContract
-from pyagentcli.agent.planner import PlanRun
+from pyagentcli.agent.planner import PlanRun, PlanStep
+
+
+@dataclass(frozen=True)
+class RetryProposal:
+    recommended_action: str
+    reason: str
+    target_step_id: str | None = None
+    suggested_command: str | None = None
+    requires_approval: bool = True
+
+    def format_text(self) -> str:
+        lines = ["Retry proposal:"]
+        lines.append(f"- Recommended action: {self.recommended_action}")
+        if self.target_step_id:
+            lines.append(f"- Target step: {self.target_step_id}")
+        lines.append(f"- Reason: {self.reason}")
+        if self.suggested_command:
+            lines.append(f"- Suggested command: `{self.suggested_command}`")
+        approval = "yes" if self.requires_approval else "no"
+        lines.append(f"- Requires approval: {approval}")
+        return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -18,6 +39,7 @@ class ReviewReport:
     paths: list[str]
     gate: ReviewerGateDecision
     handoff_recommendation: str
+    retry_proposal: RetryProposal | None = None
 
     def format_text(self) -> str:
         lines = [f"Review: {self.summary}", ""]
@@ -35,6 +57,8 @@ class ReviewReport:
         lines.append("")
         lines.append("Observed paths:")
         lines.extend(f"- {path}" for path in (self.paths or ["<none>"]))
+        if self.retry_proposal is not None:
+            lines.extend(["", self.retry_proposal.format_text()])
         return "\n".join(lines)
 
 
@@ -51,6 +75,7 @@ class Reviewer:
         summary = _summary(run, paths)
         gate = _gate_decision(reviewer_input)
         handoff_recommendation = _handoff_recommendation(reviewer_input, gate)
+        retry_proposal = _retry_proposal(run)
         report = ReviewReport(
             summary=summary,
             risks=risks,
@@ -59,6 +84,7 @@ class Reviewer:
             paths=paths,
             gate=gate,
             handoff_recommendation=handoff_recommendation,
+            retry_proposal=retry_proposal,
         )
         self.save(run, report)
         return report
@@ -161,3 +187,59 @@ def _handoff_recommendation(reviewer_input: ReviewerInputContract, gate: Reviewe
     if "cancelled" in statuses:
         return "resume the plan only after renewed user approval"
     return "inspect the plan state before continuing"
+
+
+def _retry_proposal(run: PlanRun) -> RetryProposal | None:
+    failed = _first_step_with_status(run, "failed")
+    if failed is not None:
+        return RetryProposal(
+            recommended_action="retry_step",
+            target_step_id=failed.id,
+            reason=_step_reason(failed, "The step failed during execution."),
+            suggested_command=_retry_command(run, failed),
+            requires_approval=True,
+        )
+
+    skipped = _first_step_with_status(run, "skipped")
+    if skipped is not None:
+        return RetryProposal(
+            recommended_action="user_decision",
+            target_step_id=skipped.id,
+            reason=_step_reason(skipped, "The step was skipped and may still be required."),
+            suggested_command=_retry_command(run, skipped),
+            requires_approval=True,
+        )
+
+    cancelled = _first_step_with_status(run, "cancelled")
+    if cancelled is not None:
+        return RetryProposal(
+            recommended_action="resume_plan",
+            target_step_id=cancelled.id,
+            reason=_step_reason(cancelled, "The plan has a cancelled step and needs renewed user approval."),
+            suggested_command=_resume_command(run),
+            requires_approval=True,
+        )
+
+    return None
+
+
+def _first_step_with_status(run: PlanRun, status: str) -> PlanStep | None:
+    return next((step for step in run.plan.steps if step.status == status), None)
+
+
+def _step_reason(step: PlanStep, fallback: str) -> str:
+    if step.result_summary:
+        return f"{fallback} Result summary: {step.result_summary}"
+    return fallback
+
+
+def _retry_command(run: PlanRun, step: PlanStep) -> str | None:
+    if not run.plan_id:
+        return None
+    return f"pyagent --retry-step {run.plan_id} {step.id}"
+
+
+def _resume_command(run: PlanRun) -> str | None:
+    if not run.plan_id:
+        return None
+    return f"pyagent --resume-plan {run.plan_id}"
