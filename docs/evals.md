@@ -8,6 +8,7 @@ It has two layers:
 - coding task evals
 - RAG retrieval evals
 - captured trace evals
+- Reviewer output evals
 
 These layers do not require a real model yet. This keeps the scorer deterministic before model-backed execution is added.
 
@@ -69,6 +70,22 @@ This creates the scoring contract for future real Agent runs. Once the Agent loo
 
 PyAgentCLI also includes a local fallback Agent trace eval. It runs the real `AgentLoop`, captures tool calls and observations, and scores the resulting trace without requiring an API key.
 
+## Reviewer Output Evals
+
+Reviewer evals score the deterministic Reviewer after plan execution.
+
+The built-in fixtures cover:
+
+- a successful plan that should pass the Reviewer gate
+- a failed step that should be blocked with a `retry_step` proposal
+- a skipped step that should be blocked with a `user_decision` proposal
+
+The reported metrics are:
+
+- gate match count
+- proposal action match count
+- suggested-tests match count
+
 ## Usage
 
 ```bash
@@ -77,7 +94,7 @@ PYTHONPATH=src python -m pyagentcli \
   --eval
 ```
 
-The CLI prints platform, coding-task, RAG, and trace summaries and writes a JSONL report:
+The CLI prints platform, coding-task, RAG, trace, and Reviewer summaries and writes a JSONL report:
 
 ```text
 .pyagent/evals/eval_YYYYMMDD_HHMMSS.jsonl
@@ -90,6 +107,7 @@ Report lines include a `kind` field:
 {"kind": "coding_task", "case_id": "coding.update_readme_status", "...": "..."}
 {"kind": "rag_retrieval", "case_id": "rag_retrieval.typescript_symbol", "...": "..."}
 {"kind": "trace_eval", "case_id": "trace.update_readme_status", "...": "..."}
+{"kind": "reviewer_eval", "case_id": "reviewer.failed_step", "...": "..."}
 ```
 
 ## Why Start Deterministic
@@ -98,6 +116,6 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Feed Reviewer output into eval scoring.
+1. Add model-backed Reviewer proposal generation behind explicit API configuration.
 2. Add real model trace capture behind explicit API configuration.
 3. Add per-model and per-retriever comparison reports.

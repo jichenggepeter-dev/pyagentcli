@@ -160,5 +160,5 @@ What did the reviewer recommend next?
 ## Next Steps
 
 - Add model-backed Reviewer proposal generation using the existing reviewer role config.
-- Feed Reviewer gate outcomes into eval scoring.
+- Compare deterministic Reviewer proposals against model-backed suggestions in evals.
 - Compare deterministic retry proposals against model-backed proposals in evals.

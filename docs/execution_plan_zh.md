@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.6：Reviewer Output Scoring
+- Phase 4.7：Model-backed Reviewer Proposal
 
 ## Roadmap 总览
 
@@ -638,28 +638,37 @@ User Goal
 
 名称：
 
-- Reviewer Output Scoring
+- Model-backed Reviewer Proposal
 
 目标：
 
-- 将 Reviewer gate、retry proposal、suggested tests 纳入 eval report，评估复核质量。
+- 在 deterministic Reviewer 基础上增加可选模型复核建议，但不让模型直接改变 gate 结果或自动执行 retry。
 
 第一小步：
 
-- 设计 reviewer eval result 字段：gate_passed、proposal_action、suggested_tests_count。
+- 设计 model-backed reviewer 输入输出契约：run summary、deterministic report、model suggestion。
 
 第二小步：
 
-- 用 failed/skipped/success plan fixture 评估 Reviewer 输出。
+- 接入 reviewer role config，仅在用户显式配置 API key / model 时启用。
 
 第三小步：
 
-- 将 Reviewer scoring 写入 JSONL report 和 CLI summary。
+- 将模型建议写入 review artifact，同时保持 deterministic gate 作为最终安全边界。
 
 完成标准：
 
-- eval 能检查 Reviewer 是否 block 应该 block 的 plan。
-- retry proposal 动作符合 step 状态。
-- suggested tests 不为空时可计分。
-- 不需要真实 API key 时仍有 fallback 测试路径。
+- 无 API key 时 deterministic Reviewer 行为不变。
+- 有 reviewer model 配置时可生成建议，但不会自动执行工具。
+- 模型建议能和 deterministic retry proposal 并列展示。
+- eval 或测试能覆盖 fallback 和 model-disabled 路径。
 - 全量测试通过。
+
+## 最近完成：Reviewer Output Scoring
+
+完成内容：
+
+- 新增 Reviewer eval fixture：success / failed / skipped plan。
+- 将 Reviewer gate、retry proposal、suggested tests 写入 eval summary。
+- JSONL report 新增 `reviewer_eval` 类型。
+- CLI `--eval` 输出 Reviewer eval summary 和每个 case 的评分结果。

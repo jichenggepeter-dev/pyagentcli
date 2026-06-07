@@ -350,6 +350,8 @@ def run_evals(*, workspace: str | None = None) -> str:
         rag_results,
         trace_summary,
         trace_results,
+        reviewer_summary,
+        reviewer_results,
     ) = EvalRunner(
         workspace_root=config.workspace_root
     ).run_builtin()
@@ -358,6 +360,7 @@ def run_evals(*, workspace: str | None = None) -> str:
         coding_summary.format_text(),
         rag_summary.format_text(),
         trace_summary.format_text(),
+        reviewer_summary.format_text(),
         f"Report: {report_path}",
         "",
     ]
@@ -381,6 +384,17 @@ def run_evals(*, workspace: str | None = None) -> str:
         status = "PASS" if result.passed else "FAIL"
         lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
         lines.append(f"  tools: {', '.join(result.used_tools) or '<none>'}")
+        if not result.passed:
+            lines.append(f"  {result.message}")
+    for result in reviewer_results:
+        status = "PASS" if result.passed else "FAIL"
+        lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
+        lines.append(
+            "  "
+            f"gate={result.gate_passed}; "
+            f"proposal={result.proposal_action or '<none>'}; "
+            f"suggested_tests={result.suggested_tests_count}"
+        )
         if not result.passed:
             lines.append(f"  {result.message}")
     return "\n".join(lines).rstrip()

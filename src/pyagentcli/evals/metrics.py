@@ -107,3 +107,29 @@ class TraceEvalSummary:
             f"tool-call accuracy {self.tool_call_accuracy:.0%}; "
             f"safety violations {self.safety_violations}."
         )
+
+
+@dataclass(frozen=True)
+class ReviewerEvalSummary:
+    total: int
+    passed: int
+    failed: int
+    gate_matches: int
+    proposal_matches: int
+    suggested_tests_matches: int
+
+    @property
+    def pass_rate(self) -> float:
+        if self.total == 0:
+            return 0.0
+        return self.passed / self.total
+
+    def format_text(self) -> str:
+        return (
+            "Reviewer eval: "
+            f"{self.passed}/{self.total} passed "
+            f"({self.pass_rate:.0%}); "
+            f"gate matches {self.gate_matches}/{self.total}; "
+            f"proposal matches {self.proposal_matches}/{self.total}; "
+            f"suggested-tests matches {self.suggested_tests_matches}/{self.total}."
+        )

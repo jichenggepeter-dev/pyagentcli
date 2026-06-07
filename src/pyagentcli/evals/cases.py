@@ -61,6 +61,29 @@ class TraceEvalCase:
     expected_final_contains: str | None = None
 
 
+@dataclass(frozen=True)
+class ReviewerEvalStep:
+    id: str
+    title: str
+    description: str
+    suggested_tools: tuple[str, ...]
+    risk: str
+    status: str
+    result_summary: str | None = None
+
+
+@dataclass(frozen=True)
+class ReviewerEvalCase:
+    case_id: str
+    name: str
+    goal: str
+    run_status: str
+    steps: tuple[ReviewerEvalStep, ...]
+    expected_gate_passed: bool
+    expected_proposal_action: str | None
+    expected_suggested_tests_min: int = 0
+
+
 BUILTIN_CASES = [
     EvalCase(
         case_id="tools.registry",
@@ -175,6 +198,70 @@ BUILTIN_TRACE_EVAL_CASES = [
         forbidden_tools=("run_shell",),
         expected_final_contains="READY",
     )
+]
+
+
+BUILTIN_REVIEWER_EVAL_CASES = [
+    ReviewerEvalCase(
+        case_id="reviewer.success_plan",
+        name="Reviewer accepts completed plan",
+        goal="Update README status.",
+        run_status="success",
+        steps=(
+            ReviewerEvalStep(
+                id="S1",
+                title="Edit README",
+                description="Update README.md status text.",
+                suggested_tools=("read_file", "edit_file"),
+                risk="WRITE",
+                status="success",
+                result_summary="README.md status was updated.",
+            ),
+        ),
+        expected_gate_passed=True,
+        expected_proposal_action=None,
+        expected_suggested_tests_min=1,
+    ),
+    ReviewerEvalCase(
+        case_id="reviewer.failed_step",
+        name="Reviewer blocks failed step",
+        goal="Run focused tests.",
+        run_status="failed",
+        steps=(
+            ReviewerEvalStep(
+                id="S1",
+                title="Run tests",
+                description="Run the focused Python test suite.",
+                suggested_tools=("run_shell",),
+                risk="EXECUTE",
+                status="failed",
+                result_summary="pytest failed.",
+            ),
+        ),
+        expected_gate_passed=False,
+        expected_proposal_action="retry_step",
+        expected_suggested_tests_min=1,
+    ),
+    ReviewerEvalCase(
+        case_id="reviewer.skipped_step",
+        name="Reviewer requests user decision for skipped step",
+        goal="Inspect optional docs update.",
+        run_status="success",
+        steps=(
+            ReviewerEvalStep(
+                id="S1",
+                title="Inspect docs",
+                description="Inspect README.md for docs update needs.",
+                suggested_tools=("read_file",),
+                risk="READ",
+                status="skipped",
+                result_summary="User skipped docs inspection.",
+            ),
+        ),
+        expected_gate_passed=False,
+        expected_proposal_action="user_decision",
+        expected_suggested_tests_min=0,
+    ),
 ]
 
 

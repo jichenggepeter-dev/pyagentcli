@@ -114,6 +114,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - captured trace eval with expected tool sequence, forbidden tool checks, and final output scoring
 - AgentLoop trace capture with local fallback trace eval
 - expected diff scoring for coding task evals
+- Reviewer output scoring for gate decisions, retry proposals, and suggested tests
 
 ### Release and Packaging v0.1
 
@@ -180,11 +181,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Reviewer Output Scoring**
-   Feed Reviewer gate, retry proposals, and suggested tests into eval scoring.
-
-2. **Model-backed Reviewer Proposal**
+1. **Model-backed Reviewer Proposal**
    Compare deterministic retry proposals against model-backed reviewer suggestions.
 
-3. **Advanced Browser Interaction**
+2. **Advanced Browser Interaction**
    Add user-approved local click/type flows after selector query is stable.
+
+3. **Real Model Trace Capture**
+   Capture and score real model tool-call traces behind explicit API configuration.
