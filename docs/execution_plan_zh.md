@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.5：Advanced Browser Tools
+- Phase 2.6：Browser Playwright Setup
 
 ## Roadmap 总览
 
@@ -638,27 +638,27 @@ User Goal
 
 名称：
 
-- Advanced Browser Tools
+- Browser Playwright Setup
 
 目标：
 
-- 从本地 HTML/localhost 文本 inspection 升级到 Playwright 驱动的浏览器调试能力。
+- 在可选 Playwright 工具外壳完成后，补安装/检测/真实浏览器验证流程。
 
 第一小步：
 
-- 新增 Playwright 可选依赖检测和失败降级提示，不强制安装。
+- 提供可选依赖安装文档和环境检测命令。
 
 第二小步：
 
-- 提供 DOM snapshot、console log、screenshot 的只读工具形态。
+- 在本地测试页上验证 console log 和 screenshot 成功路径。
 
 第三小步：
 
-- 保持 external URL 默认拒绝，localhost/file 工作区路径优先。
+- 增加 network log 或 selector query 的下一层只读能力。
 
 完成标准：
 
-- 没有 Playwright 时现有 `inspect_page` 仍可用。
-- 浏览器工具默认只读。
+- 没有 Playwright 时降级提示清晰。
+- 有 Playwright 时 console/screenshot 真实可用。
 - 外部 URL 不默认开放。
 - 全量测试通过。

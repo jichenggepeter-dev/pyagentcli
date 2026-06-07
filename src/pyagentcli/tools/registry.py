@@ -87,7 +87,12 @@ def _tool_preview(tool: Tool, args: dict[str, Any], context: ToolContext) -> str
 
 
 def default_registry() -> ToolRegistry:
-    from pyagentcli.tools.browser import InspectPageTool
+    from pyagentcli.tools.browser import (
+        BrowserConsoleLogsTool,
+        BrowserDomSnapshotTool,
+        BrowserScreenshotTool,
+        InspectPageTool,
+    )
     from pyagentcli.tools.filesystem import EditFileTool, ListFilesTool, ReadFileTool, WriteFileTool
     from pyagentcli.tools.search import SearchDependenciesTool, SearchFilesTool, SearchIndexTool, SearchTextTool
     from pyagentcli.tools.shell import RunShellTool
@@ -100,6 +105,9 @@ def default_registry() -> ToolRegistry:
     registry.register(SearchIndexTool())
     registry.register(SearchDependenciesTool())
     registry.register(InspectPageTool())
+    registry.register(BrowserDomSnapshotTool())
+    registry.register(BrowserConsoleLogsTool())
+    registry.register(BrowserScreenshotTool())
     registry.register(WriteFileTool())
     registry.register(EditFileTool())
     registry.register(RunShellTool())

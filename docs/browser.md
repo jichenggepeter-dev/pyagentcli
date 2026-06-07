@@ -1,12 +1,15 @@
-# Browser v0.1
+# Browser v0.2
 
 PyAgentCLI includes a first local page inspection tool:
 
 ```text
 inspect_page(url, max_chars=2000)
+browser_dom_snapshot(url, max_chars=2000)
+browser_console_logs(url, wait_ms=500)
+browser_screenshot(url, output_path=".pyagent/browser/screenshot.png")
 ```
 
-This is a deliberately small browser slice. It lets the agent inspect local HTML pages and localhost web apps without opening arbitrary external websites.
+This is a deliberately local-first browser slice. It lets the agent inspect local HTML pages and localhost web apps without opening arbitrary external websites.
 
 ## Supported URLs
 
@@ -26,13 +29,24 @@ Denied by default:
 
 ## Output
 
-The tool returns:
+`inspect_page` returns:
 
 - final URL
 - page title
 - normalized text snapshot
 
 It skips `script`, `style`, and `noscript` content.
+
+`browser_dom_snapshot` returns a more UI-oriented static snapshot:
+
+- final URL
+- page title
+- headings
+- links
+- controls
+- normalized text snapshot
+
+`browser_console_logs` and `browser_screenshot` are optional Playwright-backed tools. If Playwright is not installed, they return a clear failure explaining that optional browser dependencies are missing.
 
 Example:
 
@@ -44,24 +58,21 @@ Text:
 Hello PyAgent Status READY
 ```
 
-## Why This Is Not Full Playwright Yet
+## Optional Playwright Support
 
-Browser v0.1 focuses on the safety and agent-tool contract first:
+Browser v0.2 keeps Playwright optional:
 
-- stable tool schema
-- local-only URL guardrail
-- deterministic tests
-- no large browser binary dependency
+- no browser dependency is required for the core CLI
+- DOM snapshots work without Playwright for static local HTML
+- console logs and screenshots require Playwright when available
+- screenshot output is restricted to `.pyagent/browser/`
 
-Later Browser slices can replace or extend the internals with Playwright for screenshots, DOM inspection, console logs, and interactive verification.
+Install and browser binary setup are intentionally not automatic in this slice.
 
 ## Non-Goals
 
-Browser v0.1 does not yet include:
+Browser v0.2 does not yet include:
 
-- JavaScript execution
-- screenshots
-- DOM selector querying
 - clicking or typing
-- console/network logs
+- network logs
 - external website browsing

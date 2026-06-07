@@ -129,13 +129,16 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - read-only MCP tool support via `readOnlyHint`
 - non-read MCP tools classified as `NETWORK` or `CRITICAL` and denied by default policy
 
-### Browser v0.1
+### Browser v0.2
 
 - local page inspection tool
 - workspace-relative HTML and workspace `file://` support
 - localhost, 127.0.0.1, and ::1 URL support
 - external URL denial by default
 - title and normalized text snapshot extraction
+- DOM-oriented static snapshot tool
+- optional Playwright console log and screenshot tool shells with clear missing-dependency fallback
+- screenshot output restricted to `.pyagent/browser/`
 
 ### Multi-Agent v0.3
 
@@ -152,8 +155,9 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced Browser Tools
 
-- Playwright-backed screenshots and DOM inspection
-- console and network logs
+- Playwright install/setup workflow
+- interactive local frontend flows
+- network logs
 - local frontend interaction flows
 
 ### Advanced RAG
@@ -170,8 +174,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Advanced Browser tools**
-   Add Playwright-backed screenshots, DOM inspection, console logs, and local UI interaction.
+1. **Browser Playwright Setup**
+   Add optional install/setup guidance and fuller Playwright-backed browser verification.
 
 2. **Model-backed Eval v0.3**
    Replace simulated tool calls with captured Agent runs and expected diff scoring.

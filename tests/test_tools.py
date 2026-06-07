@@ -190,6 +190,9 @@ def test_default_registry_exposes_edit_file_schema() -> None:
     tool_names = [schema["function"]["name"] for schema in registry.schemas()]
     assert "edit_file" in tool_names
     assert "inspect_page" in tool_names
+    assert "browser_dom_snapshot" in tool_names
+    assert "browser_console_logs" in tool_names
+    assert "browser_screenshot" in tool_names
 
 
 def test_inspect_page_reads_workspace_html_file(tmp_path: Path) -> None:
@@ -235,6 +238,79 @@ def test_inspect_page_rejects_external_url(tmp_path: Path) -> None:
 
     assert not result.ok
     assert "Only local browser URLs are allowed" in (result.error or "")
+
+
+def test_browser_dom_snapshot_returns_structure(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text(
+        """
+<html>
+  <head><title>DOM Demo</title></head>
+  <body>
+    <h1>Welcome</h1>
+    <a href="/docs">Docs</a>
+    <button aria-label="Save changes">Save</button>
+    <input name="query" />
+    <p>Ready for inspection.</p>
+  </body>
+</html>
+""".strip(),
+        encoding="utf-8",
+    )
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_dom_snapshot", {"url": "index.html"}, context)
+
+    assert result.ok
+    assert "Title: DOM Demo" in result.content
+    assert "h1: Welcome" in result.content
+    assert "- /docs" in result.content
+    assert "button: Save changes" in result.content
+    assert "input: query" in result.content
+
+
+def test_browser_dom_snapshot_rejects_external_url(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_dom_snapshot", {"url": "https://example.com"}, context)
+
+    assert not result.ok
+    assert "Only local browser URLs are allowed" in (result.error or "")
+
+
+def test_browser_console_logs_gracefully_reports_missing_playwright(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text("<title>Console</title><script>console.log('hello')</script>", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_console_logs", {"url": "index.html"}, context)
+
+    if not result.ok:
+        assert "Playwright is not installed" in (result.error or "")
+    else:
+        assert "Console logs:" in result.content
+
+
+def test_browser_screenshot_restricts_output_path(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text("<title>Shot</title><main>Hello</main>", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute(
+        "browser_screenshot",
+        {"url": "index.html", "output_path": "screenshots/out.png"},
+        context,
+    )
+
+    assert not result.ok
+    assert (
+        "Screenshot output_path must be under .pyagent/browser/" in (result.error or "")
+        or "Playwright is not installed" in (result.error or "")
+    )
 
 
 def test_search_text_finds_matches(tmp_path: Path) -> None:
