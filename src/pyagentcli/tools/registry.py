@@ -90,6 +90,7 @@ def default_registry() -> ToolRegistry:
     from pyagentcli.tools.browser import (
         BrowserConsoleLogsTool,
         BrowserDomSnapshotTool,
+        BrowserQuerySelectorTool,
         BrowserScreenshotTool,
         InspectPageTool,
     )
@@ -106,6 +107,7 @@ def default_registry() -> ToolRegistry:
     registry.register(SearchDependenciesTool())
     registry.register(InspectPageTool())
     registry.register(BrowserDomSnapshotTool())
+    registry.register(BrowserQuerySelectorTool())
     registry.register(BrowserConsoleLogsTool())
     registry.register(BrowserScreenshotTool())
     registry.register(WriteFileTool())

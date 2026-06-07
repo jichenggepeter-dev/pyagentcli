@@ -191,6 +191,7 @@ def test_default_registry_exposes_edit_file_schema() -> None:
     assert "edit_file" in tool_names
     assert "inspect_page" in tool_names
     assert "browser_dom_snapshot" in tool_names
+    assert "browser_query_selector" in tool_names
     assert "browser_console_logs" in tool_names
     assert "browser_screenshot" in tool_names
 
@@ -275,6 +276,65 @@ def test_browser_dom_snapshot_rejects_external_url(tmp_path: Path) -> None:
     context = make_context(tmp_path, ApproveAll())
 
     result = registry.execute("browser_dom_snapshot", {"url": "https://example.com"}, context)
+
+    assert not result.ok
+    assert "Only local browser URLs are allowed" in (result.error or "")
+
+
+def test_browser_query_selector_matches_id_class_and_tag(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text(
+        """
+<html>
+  <head><title>Selector Demo</title></head>
+  <body>
+    <main id="app">
+      <h1 class="title">Dashboard</h1>
+      <p class="status">Ready</p>
+      <p class="status">Healthy</p>
+    </main>
+  </body>
+</html>
+""".strip(),
+        encoding="utf-8",
+    )
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    id_result = registry.execute("browser_query_selector", {"url": "index.html", "selector": "#app"}, context)
+    class_result = registry.execute(
+        "browser_query_selector",
+        {"url": "index.html", "selector": ".status", "max_results": 1},
+        context,
+    )
+    tag_result = registry.execute("browser_query_selector", {"url": "index.html", "selector": "h1"}, context)
+
+    assert id_result.ok
+    assert "main#app" in id_result.content
+    assert "Dashboard Ready Healthy" in id_result.content
+    assert class_result.ok
+    assert "Matches: 1" in class_result.content
+    assert "p.status: Ready" in class_result.content
+    assert tag_result.ok
+    assert "h1.title: Dashboard" in tag_result.content
+
+
+def test_browser_query_selector_rejects_complex_selector(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text("<main id='app'>Hello</main>", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_query_selector", {"url": "index.html", "selector": "main .status"}, context)
+
+    assert not result.ok
+    assert "Only simple tag, #id, or .class selectors are supported" in (result.error or "")
+
+
+def test_browser_query_selector_rejects_external_url(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_query_selector", {"url": "https://example.com", "selector": "main"}, context)
 
     assert not result.ok
     assert "Only local browser URLs are allowed" in (result.error or "")

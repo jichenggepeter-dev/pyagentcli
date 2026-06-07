@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.8：Browser Selector Query
+- Phase 4.3：Model-backed Eval v0.3
 
 ## Roadmap 总览
 
@@ -638,26 +638,27 @@ User Goal
 
 名称：
 
-- Browser Selector Query
+- Model-backed Eval v0.3
 
 目标：
 
-- 增加只读 selector query，方便 Agent 检查局部 DOM，而不是只能看整页 snapshot。
+- 从模拟工具调用评估升级到真实 Agent run / captured trace / expected diff 评分。
 
 第一小步：
 
-- 设计 selector query schema：url、selector、max_results。
+- 设计 captured agent run 的 trace schema，记录 goal、tool calls、observations、final output。
 
 第二小步：
 
-- 没有 Playwright 时可以用静态 HTML 解析做基础选择器支持，复杂 selector 再降级提示。
+- 将一个现有 coding task eval 从模拟执行迁移到真实 Agent loop 或可回放 trace。
 
 第三小步：
 
-- 保持 local-only URL guardrail，并补 selector 测试。
+- 评分 expected diff、工具调用准确率和 safety violation。
 
 完成标准：
 
-- 能查询常见 tag/id/class selector。
-- 外部 URL 仍拒绝。
+- eval 不只检查静态函数，也能评估 Agent 行为。
+- trace 可审计、可复现。
+- 不需要真实 API key 时仍有 fallback 测试路径。
 - 全量测试通过。

@@ -141,6 +141,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - screenshot output restricted to `.pyagent/browser/`
 - `--check-browser` optional capability diagnostic
 - `browser` optional dependency extra for Playwright
+- read-only `browser_query_selector` for simple tag, id, and class selectors
 
 ### Multi-Agent v0.3
 
@@ -176,11 +177,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Browser Selector Query**
-   Add read-only tag/id/class selector lookup for local pages.
-
-2. **Model-backed Eval v0.3**
+1. **Model-backed Eval v0.3**
    Replace simulated tool calls with captured Agent runs and expected diff scoring.
 
-3. **Model-backed Reviewer Proposal**
+2. **Model-backed Reviewer Proposal**
    Compare deterministic retry proposals against model-backed reviewer suggestions.
+
+3. **Advanced Browser Interaction**
+   Add user-approved local click/type flows after selector query is stable.

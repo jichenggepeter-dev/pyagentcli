@@ -136,6 +136,68 @@ class BrowserDomSnapshotTool:
         )
 
 
+class BrowserQuerySelectorTool:
+    name = "browser_query_selector"
+    description = "Query simple tag, #id, or .class selectors on a local page and return matching text."
+    risk_level = RiskLevel.READ
+
+    def schema(self) -> dict[str, Any]:
+        return function_schema(
+            self.name,
+            self.description,
+            {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "A file://, workspace-relative path, localhost, 127.0.0.1, or ::1 URL.",
+                    },
+                    "selector": {
+                        "type": "string",
+                        "description": "A simple selector: tag, #id, or .class. Complex CSS selectors are not supported yet.",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum matches to return. Defaults to 20.",
+                    },
+                },
+                "required": ["url", "selector"],
+            },
+        )
+
+    def run(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
+        raw_url = args.get("url")
+        if not isinstance(raw_url, str) or not raw_url.strip():
+            return ToolResult.failure("Missing required non-empty string argument: url")
+        selector = args.get("selector")
+        if not isinstance(selector, str) or not selector.strip():
+            return ToolResult.failure("Missing required non-empty string argument: selector")
+
+        parsed_selector = _parse_simple_selector(selector.strip())
+        if isinstance(parsed_selector, ToolResult):
+            return parsed_selector
+
+        prepared = _prepare_local_url(raw_url.strip(), context)
+        if isinstance(prepared, ToolResult):
+            return prepared
+
+        display_url, html = prepared
+        max_results = _coerce_max_results(args.get("max_results"))
+        matches = _query_html(html, parsed_selector, max_results=max_results)
+        lines = [f"URL: {display_url}", f"Selector: {selector.strip()}", f"Matches: {len(matches)}", ""]
+        if not matches:
+            lines.append("<no matches>")
+        else:
+            for index, match in enumerate(matches, start=1):
+                lines.append(f"{index}. {match.format_text()}")
+        return ToolResult.success(
+            "\n".join(lines),
+            url=display_url,
+            selector=selector.strip(),
+            matches=len(matches),
+        )
+
+
 class BrowserConsoleLogsTool:
     name = "browser_console_logs"
     description = "Collect console logs from a local page with optional Playwright support."
@@ -267,6 +329,28 @@ class _HTMLSnapshot:
         self.controls = controls
 
 
+@dataclass(frozen=True)
+class _SimpleSelector:
+    kind: str
+    value: str
+
+
+@dataclass(frozen=True)
+class _ElementMatch:
+    tag: str
+    element_id: str | None
+    classes: tuple[str, ...]
+    text: str
+
+    def format_text(self) -> str:
+        identity = self.tag
+        if self.element_id:
+            identity += f"#{self.element_id}"
+        if self.classes:
+            identity += "." + ".".join(self.classes)
+        return f"{identity}: {self.text or '<no text>'}"
+
+
 class _SnapshotParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -315,6 +399,65 @@ class _SnapshotParser(HTMLParser):
             if self._heading_tag:
                 self.heading_parts.append(f"{self._heading_tag}: {stripped}")
             self.text_parts.append(stripped)
+
+
+class _QueryParser(HTMLParser):
+    def __init__(self, selector: _SimpleSelector) -> None:
+        super().__init__(convert_charrefs=True)
+        self.selector = selector
+        self.matches: list[_ElementMatch] = []
+        self._stack: list[dict[str, Any]] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if tag in {"script", "style", "noscript"}:
+            self._skip_depth += 1
+        attrs_dict = dict(attrs)
+        frame = {
+            "tag": tag,
+            "id": attrs_dict.get("id"),
+            "classes": tuple((attrs_dict.get("class") or "").split()),
+            "text": [],
+            "matched": self._matches(tag, attrs_dict),
+        }
+        self._stack.append(frame)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if not self._stack:
+            return
+        frame = self._stack.pop()
+        text = _normalize_text(" ".join(frame["text"]))
+        if frame["matched"]:
+            self.matches.append(
+                _ElementMatch(
+                    tag=str(frame["tag"]),
+                    element_id=frame["id"],
+                    classes=frame["classes"],
+                    text=text,
+                )
+            )
+        if self._stack and text:
+            self._stack[-1]["text"].append(text)
+        if tag in {"script", "style", "noscript"} and self._skip_depth:
+            self._skip_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth or not self._stack:
+            return
+        stripped = data.strip()
+        if stripped:
+            self._stack[-1]["text"].append(stripped)
+
+    def _matches(self, tag: str, attrs: dict[str, str | None]) -> bool:
+        if self.selector.kind == "tag":
+            return tag == self.selector.value
+        if self.selector.kind == "id":
+            return attrs.get("id") == self.selector.value
+        if self.selector.kind == "class":
+            return self.selector.value in (attrs.get("class") or "").split()
+        return False
 
 
 def _prepare_local_url(raw_url: str, context: ToolContext) -> tuple[str, str] | ToolResult:
@@ -422,6 +565,22 @@ def _format_dom_snapshot(url: str, snapshot: _HTMLSnapshot) -> str:
     return "\n".join(lines)
 
 
+def _parse_simple_selector(selector: str) -> _SimpleSelector | ToolResult:
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", selector):
+        return _SimpleSelector(kind="tag", value=selector.lower())
+    if re.fullmatch(r"#[A-Za-z_][A-Za-z0-9_-]*", selector):
+        return _SimpleSelector(kind="id", value=selector[1:])
+    if re.fullmatch(r"\.[A-Za-z_][A-Za-z0-9_-]*", selector):
+        return _SimpleSelector(kind="class", value=selector[1:])
+    return ToolResult.failure("Only simple tag, #id, or .class selectors are supported.")
+
+
+def _query_html(html: str, selector: _SimpleSelector, *, max_results: int) -> list[_ElementMatch]:
+    parser = _QueryParser(selector)
+    parser.feed(html)
+    return parser.matches[:max_results]
+
+
 def _normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", unescape(value)).strip()
 
@@ -440,6 +599,14 @@ def _coerce_wait_ms(value: Any) -> int:
     except (TypeError, ValueError):
         return 500
     return max(0, min(parsed, 5_000))
+
+
+def _coerce_max_results(value: Any) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return 20
+    return max(1, min(parsed, 100))
 
 
 def _prepare_screenshot_path(value: Any, context: ToolContext) -> Path | ToolResult:

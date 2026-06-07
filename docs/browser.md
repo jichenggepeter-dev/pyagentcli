@@ -5,6 +5,7 @@ PyAgentCLI includes a first local page inspection tool:
 ```text
 inspect_page(url, max_chars=2000)
 browser_dom_snapshot(url, max_chars=2000)
+browser_query_selector(url, selector, max_results=20)
 browser_console_logs(url, wait_ms=500)
 browser_screenshot(url, output_path=".pyagent/browser/screenshot.png")
 ```
@@ -45,6 +46,14 @@ It skips `script`, `style`, and `noscript` content.
 - links
 - controls
 - normalized text snapshot
+
+`browser_query_selector` supports simple read-only lookup for:
+
+- tag selectors such as `main`
+- id selectors such as `#app`
+- class selectors such as `.status`
+
+Complex CSS selectors are intentionally rejected in this static parser slice.
 
 `browser_console_logs` and `browser_screenshot` are optional Playwright-backed tools. If Playwright is not installed, they return a clear failure explaining that optional browser dependencies are missing.
 
@@ -96,4 +105,5 @@ Browser v0.2 does not yet include:
 
 - clicking or typing
 - network logs
+- complex CSS selector support
 - external website browsing
