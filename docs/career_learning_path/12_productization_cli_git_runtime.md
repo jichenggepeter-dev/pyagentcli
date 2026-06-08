@@ -1345,6 +1345,6 @@ push after approval
 
 下一篇进入：
 
-> Eval Harness 和 Trace Eval
+> [Eval Harness 和 Trace Eval](13_eval_harness_trace_eval.md)
 
 产品化解决的是“这个 CLI 怎么被使用、交付和复盘”；Eval 要解决的是“怎么证明 Agent 真的完成了任务，以及怎么衡量工具调用、检索、Reviewer 和真实模型表现”。
