@@ -1110,6 +1110,6 @@ reviewer gate
 
 下一篇进入：
 
-> 多模态和未来扩展
+> [多模态和未来扩展](14_multimodal_future_extensions.md)
 
 Eval 解决的是“如何证明 Agent 有效”；最后一篇要讲“未来如何扩展到多模态、TUI、Runtime API、更多工具生态，同时不把未完成能力写成已完成”。
