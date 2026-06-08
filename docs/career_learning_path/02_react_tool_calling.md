@@ -514,7 +514,6 @@ pyagent --eval --eval-real-model
 
 下一篇进入：
 
-> Plan-and-Execute / DAG
+> [Plan-and-Execute / DAG](03_plan_execute_dag.md)
 
 ReAct 适合短任务和探索任务；复杂任务需要先拆计划、审批、执行、恢复和复核。这就是下一篇要解决的问题。
-
