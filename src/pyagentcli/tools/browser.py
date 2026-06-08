@@ -313,6 +313,116 @@ class BrowserScreenshotTool:
         )
 
 
+class BrowserNetworkLogsTool:
+    name = "browser_network_logs"
+    description = "Collect request and response summaries from a local page with optional Playwright support."
+    risk_level = RiskLevel.READ
+
+    def schema(self) -> dict[str, Any]:
+        return function_schema(
+            self.name,
+            self.description,
+            {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "A file://, workspace-relative path, localhost, 127.0.0.1, or ::1 URL.",
+                    },
+                    "wait_ms": {
+                        "type": "integer",
+                        "description": "Milliseconds to wait after page load. Defaults to 500.",
+                    },
+                    "max_entries": {
+                        "type": "integer",
+                        "description": "Maximum request/response entries to return. Defaults to 50.",
+                    },
+                },
+                "required": ["url"],
+            },
+        )
+
+    def run(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
+        raw_url = args.get("url")
+        if not isinstance(raw_url, str) or not raw_url.strip():
+            return ToolResult.failure("Missing required non-empty string argument: url")
+
+        prepared_url = _prepare_browser_target(raw_url.strip(), context)
+        if isinstance(prepared_url, ToolResult):
+            return prepared_url
+        playwright = _load_playwright()
+        if isinstance(playwright, ToolResult):
+            return playwright
+
+        wait_ms = _coerce_wait_ms(args.get("wait_ms"))
+        max_entries = _coerce_max_entries(args.get("max_entries"))
+        sync_playwright, playwright_error = playwright
+        entries: dict[str, _NetworkLogEntry] = {}
+        ordered_keys: list[str] = []
+
+        def remember_request(request: Any) -> None:
+            if len(ordered_keys) >= max_entries:
+                return
+            key = id(request)
+            text_key = str(key)
+            ordered_keys.append(text_key)
+            entries[text_key] = _NetworkLogEntry(
+                method=request.method,
+                url=request.url,
+                resource_type=request.resource_type,
+            )
+
+        def remember_response(response: Any) -> None:
+            text_key = str(id(response.request))
+            entry = entries.get(text_key)
+            if entry is not None:
+                entries[text_key] = _NetworkLogEntry(
+                    method=entry.method,
+                    url=entry.url,
+                    resource_type=entry.resource_type,
+                    status=response.status,
+                    failure=entry.failure,
+                )
+
+        def remember_failure(request: Any) -> None:
+            text_key = str(id(request))
+            entry = entries.get(text_key)
+            if entry is not None:
+                failure = request.failure
+                entries[text_key] = _NetworkLogEntry(
+                    method=entry.method,
+                    url=entry.url,
+                    resource_type=entry.resource_type,
+                    status=entry.status,
+                    failure=failure or "failed",
+                )
+
+        try:
+            with sync_playwright() as manager:
+                browser = manager.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.on("request", remember_request)
+                page.on("response", remember_response)
+                page.on("requestfailed", remember_failure)
+                page.goto(prepared_url, wait_until="load", timeout=10_000)
+                page.wait_for_timeout(wait_ms)
+                browser.close()
+        except playwright_error as exc:
+            return ToolResult.failure(f"Could not collect network logs: {exc}", exception_type=type(exc).__name__)
+
+        collected = [entries[key] for key in ordered_keys if key in entries]
+        lines = [f"URL: {prepared_url}", f"Network entries: {len(collected)}", ""]
+        if not collected:
+            lines.append("<no network entries>")
+        else:
+            lines.extend(f"{index}. {entry.format_text()}" for index, entry in enumerate(collected, start=1))
+        return ToolResult.success(
+            "\n".join(lines),
+            url=prepared_url,
+            entries=len(collected),
+        )
+
+
 class BrowserInteractTool:
     name = "browser_interact"
     description = "Run approved click, type, or wait actions on a local page and return the resulting text snapshot."
@@ -452,6 +562,23 @@ class _BrowserAction:
     selector: str | None = None
     text: str | None = None
     wait_ms: int = 0
+
+
+@dataclass(frozen=True)
+class _NetworkLogEntry:
+    method: str
+    url: str
+    resource_type: str
+    status: int | None = None
+    failure: str | None = None
+
+    def format_text(self) -> str:
+        status = self.status if self.status is not None else "<pending>"
+        failure = self.failure or "<none>"
+        return (
+            f"{self.method} {self.url} "
+            f"status={status} resource={self.resource_type} failure={failure}"
+        )
 
 
 class _SnapshotParser(HTMLParser):
@@ -751,6 +878,14 @@ def _coerce_max_results(value: Any) -> int:
     except (TypeError, ValueError):
         return 20
     return max(1, min(parsed, 100))
+
+
+def _coerce_max_entries(value: Any) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return 50
+    return max(1, min(parsed, 200))
 
 
 def _prepare_screenshot_path(value: Any, context: ToolContext) -> Path | ToolResult:

@@ -194,6 +194,7 @@ def test_default_registry_exposes_edit_file_schema() -> None:
     assert "browser_query_selector" in tool_names
     assert "browser_console_logs" in tool_names
     assert "browser_screenshot" in tool_names
+    assert "browser_network_logs" in tool_names
     assert "browser_interact" in tool_names
 
 
@@ -386,6 +387,34 @@ def test_browser_interact_rejects_external_url(tmp_path: Path) -> None:
 
     assert not result.ok
     assert "Only local browser URLs are allowed" in (result.error or "")
+
+
+def test_browser_network_logs_rejects_external_url(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_network_logs", {"url": "https://example.com"}, context)
+
+    assert not result.ok
+    assert "Only local browser URLs are allowed" in (result.error or "")
+
+
+def test_browser_network_logs_gracefully_reports_missing_playwright(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text("<title>Network</title><main>Hello</main>", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_network_logs", {"url": "index.html", "wait_ms": 100}, context)
+
+    if not result.ok:
+        assert (
+            "Playwright is not installed" in (result.error or "")
+            or "Could not collect network logs" in (result.error or "")
+        )
+    else:
+        assert "Network entries:" in result.content
+        assert "status=" in result.content
 
 
 def test_browser_interact_requires_approval(tmp_path: Path) -> None:

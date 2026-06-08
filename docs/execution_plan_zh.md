@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 2.4：Browser Network Logs
+- Phase 4.10：Per-Model Trace Comparison
 
 ## Roadmap 总览
 
@@ -638,31 +638,41 @@ User Goal
 
 名称：
 
-- Browser Network Logs
+- Per-Model Trace Comparison
 
 目标：
 
-- 在现有 local-only Playwright 浏览器工具基础上，增加网络请求和响应摘要，帮助调试本地前端/API 联调。
+- 在不改变默认本地 eval 的前提下，对多个模型配置的 real model trace 结果做对比报告。
 
 第一小步：
 
-- 设计 network log 数据字段：method、url、status、resource_type、failure。
+- 设计 model comparison 输入：model name、base_url、case_id、trace score。
 
 第二小步：
 
-- 增加 `browser_network_logs` 只读工具，仍然限制 local-only URL。
+- 增加 opt-in 的 per-model trace runner，不默认调用外部 API。
 
 第三小步：
 
-- 增加可选 Playwright fixture 测试，捕获本地页面发出的请求。
+- 输出每个模型的 tool-call accuracy、safety violations、final output pass/fail。
 
 完成标准：
 
-- 外部 URL 仍默认拒绝。
-- 未安装 Playwright 时清晰降级。
-- 有 Playwright 时可捕获本地页面请求和响应状态。
-- 不记录敏感 header 或 body。
+- 默认 eval 不调用外部模型。
+- 显式配置后才比较多个模型。
+- 每个模型结果写入 JSONL report。
+- 无 API key 或配置缺失时清晰提示。
 - 全量测试通过。
+
+## 最近完成：Browser Network Logs
+
+完成内容：
+
+- 新增 `browser_network_logs` 只读工具。
+- 工具保持 local-only URL 边界，只允许 workspace file 和 localhost。
+- 输出 method、url、status、resource_type、failure。
+- 不记录 request/response body，也不记录 header。
+- 未安装 Playwright 时清晰降级；可选测试覆盖本地页面发起请求和响应状态。
 
 ## 最近完成：Reviewer Proposal Comparison Eval
 

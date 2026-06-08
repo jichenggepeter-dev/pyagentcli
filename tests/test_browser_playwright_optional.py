@@ -124,3 +124,37 @@ def test_browser_interact_success_path_when_playwright_is_available(tmp_path: Pa
     assert result.ok
     assert "Title: Interact Fixture" in result.content
     assert "Hello PyAgent" in result.content
+
+
+def test_browser_network_logs_success_path_when_playwright_is_available(tmp_path: Path) -> None:
+    pytest.importorskip("playwright.sync_api")
+    (tmp_path / "data.json").write_text('{"status":"ready"}', encoding="utf-8")
+    page = tmp_path / "network.html"
+    page.write_text(
+        """
+<html>
+  <head><title>Network Fixture</title></head>
+  <body>
+    <main>Network Fixture</main>
+    <script>
+      fetch('data.json').then((response) => response.text()).then(() => {
+        document.body.dataset.loaded = 'yes';
+      });
+    </script>
+  </body>
+</html>
+""".strip(),
+        encoding="utf-8",
+    )
+    registry = default_registry()
+    context = make_context(tmp_path)
+
+    result = registry.execute("browser_network_logs", {"url": "network.html", "wait_ms": 300}, context)
+
+    skip_if_browser_binary_missing(result.error)
+    assert result.ok
+    assert "Network entries:" in result.content
+    assert "network.html" in result.content
+    assert "data.json" in result.content
+    assert "status=200" in result.content
+    assert "ready" not in result.content

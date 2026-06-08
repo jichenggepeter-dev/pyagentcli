@@ -91,6 +91,7 @@ def default_registry() -> ToolRegistry:
         BrowserConsoleLogsTool,
         BrowserDomSnapshotTool,
         BrowserInteractTool,
+        BrowserNetworkLogsTool,
         BrowserQuerySelectorTool,
         BrowserScreenshotTool,
         InspectPageTool,
@@ -111,6 +112,7 @@ def default_registry() -> ToolRegistry:
     registry.register(BrowserQuerySelectorTool())
     registry.register(BrowserConsoleLogsTool())
     registry.register(BrowserScreenshotTool())
+    registry.register(BrowserNetworkLogsTool())
     registry.register(BrowserInteractTool())
     registry.register(WriteFileTool())
     registry.register(EditFileTool())

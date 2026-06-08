@@ -139,7 +139,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - read-only MCP tool support via `readOnlyHint`
 - non-read MCP tools classified as `NETWORK` or `CRITICAL` and denied by default policy
 
-### Browser v0.3
+### Browser v0.4
 
 - local page inspection tool
 - workspace-relative HTML and workspace `file://` support
@@ -154,6 +154,9 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - read-only `browser_query_selector` for simple tag, id, and class selectors
 - approved local `browser_interact` actions for click, type/fill, and wait
 - interaction results return the final title and normalized page text
+- read-only `browser_network_logs` for local request/response summaries
+- network logs include method, URL, status, resource type, and failure only
+- request/response bodies and headers are not recorded
 
 ### Multi-Agent v0.3
 
@@ -171,7 +174,6 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ### Advanced Browser Tools
 
-- network logs
 - richer interaction assertions
 
 ### Advanced RAG
@@ -188,11 +190,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Browser Network Logs**
-   Add local-only Playwright network request and response inspection.
-
-2. **Per-Model Trace Comparison**
+1. **Per-Model Trace Comparison**
    Compare real model trace results across model configs without changing default local evals.
 
-3. **Git Diff-Aware Reviewer**
+2. **Git Diff-Aware Reviewer**
    Include git diff summaries in Reviewer artifacts when the workspace is a git repository.
+
+3. **Richer Browser Assertions**
+   Add local-only assertions for expected text, selector state, and network status.
