@@ -423,6 +423,63 @@ class BrowserNetworkLogsTool:
         )
 
 
+class BrowserAssertTool:
+    name = "browser_assert"
+    description = "Assert expected text, selector presence, and page status for a local page or localhost URL."
+    risk_level = RiskLevel.READ
+
+    def schema(self) -> dict[str, Any]:
+        return function_schema(
+            self.name,
+            self.description,
+            {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "A file://, workspace-relative path, localhost, 127.0.0.1, or ::1 URL.",
+                    },
+                    "expected_text": {
+                        "type": "string",
+                        "description": "Text expected to appear in the rendered page body.",
+                    },
+                    "selector": {
+                        "type": "string",
+                        "description": "Selector expected to exist. Static fallback supports tag, #id, or .class; Playwright supports CSS selectors.",
+                    },
+                    "expected_status": {
+                        "type": "integer",
+                        "description": "Expected main page status. File URLs are treated as 200 when the file exists.",
+                    },
+                    "wait_ms": {
+                        "type": "integer",
+                        "description": "Milliseconds to wait after page load when Playwright is available. Defaults to 500.",
+                    },
+                },
+                "required": ["url"],
+            },
+        )
+
+    def run(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
+        raw_url = args.get("url")
+        if not isinstance(raw_url, str) or not raw_url.strip():
+            return ToolResult.failure("Missing required non-empty string argument: url")
+        assertion = _parse_browser_assertion(args)
+        if isinstance(assertion, ToolResult):
+            return assertion
+        if not assertion.has_checks:
+            return ToolResult.failure("browser_assert requires at least one of expected_text, selector, or expected_status.")
+
+        prepared_url = _prepare_browser_target(raw_url.strip(), context)
+        if isinstance(prepared_url, ToolResult):
+            return prepared_url
+
+        playwright = _load_playwright()
+        if not isinstance(playwright, ToolResult):
+            return _run_playwright_assertion(prepared_url, assertion, playwright)
+        return _run_static_assertion(raw_url.strip(), context, assertion, playwright.error or "")
+
+
 class BrowserInteractTool:
     name = "browser_interact"
     description = "Run approved click, type, or wait actions on a local page and return the resulting text snapshot."
@@ -562,6 +619,18 @@ class _BrowserAction:
     selector: str | None = None
     text: str | None = None
     wait_ms: int = 0
+
+
+@dataclass(frozen=True)
+class _BrowserAssertion:
+    expected_text: str | None
+    selector: str | None
+    expected_status: int | None
+    wait_ms: int
+
+    @property
+    def has_checks(self) -> bool:
+        return self.expected_text is not None or self.selector is not None or self.expected_status is not None
 
 
 @dataclass(frozen=True)
@@ -766,6 +835,17 @@ def _read_http_url(url: str) -> tuple[str, str] | ToolResult:
     return final_url, body
 
 
+def _local_http_status(url: str) -> int | None:
+    request = urllib.request.Request(url, headers={"User-Agent": "PyAgentCLI/0.1"}, method="HEAD")
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return int(response.status)
+    except urllib.error.HTTPError as exc:
+        return int(exc.code)
+    except urllib.error.URLError:
+        return None
+
+
 def _html_snapshot(html: str, *, max_chars: int) -> _HTMLSnapshot:
     parser = _SnapshotParser()
     parser.feed(html)
@@ -839,6 +919,142 @@ def _parse_browser_actions(raw_actions: list[Any]) -> list[_BrowserAction] | Too
             continue
         actions.append(_BrowserAction(type="wait", wait_ms=_coerce_wait_ms(raw_action.get("wait_ms"))))
     return actions
+
+
+def _parse_browser_assertion(args: dict[str, Any]) -> _BrowserAssertion | ToolResult:
+    expected_text = args.get("expected_text")
+    if expected_text is not None and not isinstance(expected_text, str):
+        return ToolResult.failure("expected_text must be a string when provided.")
+    selector = args.get("selector")
+    if selector is not None and (not isinstance(selector, str) or not selector.strip()):
+        return ToolResult.failure("selector must be a non-empty string when provided.")
+    expected_status = args.get("expected_status")
+    parsed_status: int | None = None
+    if expected_status is not None:
+        try:
+            parsed_status = int(expected_status)
+        except (TypeError, ValueError):
+            return ToolResult.failure("expected_status must be an integer when provided.")
+        if parsed_status < 100 or parsed_status > 599:
+            return ToolResult.failure("expected_status must be between 100 and 599.")
+    return _BrowserAssertion(
+        expected_text=expected_text if isinstance(expected_text, str) else None,
+        selector=selector.strip() if isinstance(selector, str) else None,
+        expected_status=parsed_status,
+        wait_ms=_coerce_wait_ms(args.get("wait_ms")),
+    )
+
+
+def _run_playwright_assertion(
+    prepared_url: str,
+    assertion: _BrowserAssertion,
+    playwright,
+) -> ToolResult:
+    sync_playwright, playwright_error = playwright
+    failures: list[str] = []
+    checks: list[str] = []
+    try:
+        with sync_playwright() as manager:
+            browser = manager.chromium.launch(headless=True)
+            page = browser.new_page()
+            response = page.goto(prepared_url, wait_until="load", timeout=10_000)
+            page.wait_for_timeout(assertion.wait_ms)
+            status = response.status if response is not None else (200 if prepared_url.startswith("file:") else None)
+            text = _normalize_text(page.locator("body").inner_text(timeout=5_000))
+            if assertion.expected_status is not None:
+                if status == assertion.expected_status:
+                    checks.append(f"status == {assertion.expected_status}")
+                else:
+                    failures.append(f"status was {status}, expected {assertion.expected_status}")
+            if assertion.expected_text is not None:
+                if assertion.expected_text in text:
+                    checks.append(f"text contains {assertion.expected_text!r}")
+                else:
+                    failures.append(f"text did not contain {assertion.expected_text!r}")
+            if assertion.selector is not None:
+                count = page.locator(assertion.selector).count()
+                if count > 0:
+                    checks.append(f"selector {assertion.selector!r} exists ({count} match(es))")
+                else:
+                    failures.append(f"selector {assertion.selector!r} did not match")
+            browser.close()
+    except playwright_error as exc:
+        return ToolResult.failure(f"Could not run browser assertion: {exc}", exception_type=type(exc).__name__)
+
+    return _format_assertion_result(
+        url=prepared_url,
+        mode="playwright",
+        failures=failures,
+        checks=checks,
+    )
+
+
+def _run_static_assertion(
+    raw_url: str,
+    context: ToolContext,
+    assertion: _BrowserAssertion,
+    playwright_error: str,
+) -> ToolResult:
+    prepared = _prepare_local_url(raw_url, context)
+    if isinstance(prepared, ToolResult):
+        return prepared
+
+    display_url, html = prepared
+    failures: list[str] = []
+    checks: list[str] = []
+    parsed = urllib.parse.urlparse(display_url)
+    status = 200 if parsed.scheme == "file" else _local_http_status(display_url)
+    snapshot = _html_snapshot(html, max_chars=20_000)
+
+    if assertion.expected_status is not None:
+        if status == assertion.expected_status:
+            checks.append(f"status == {assertion.expected_status}")
+        else:
+            failures.append(f"status was {status}, expected {assertion.expected_status}")
+    if assertion.expected_text is not None:
+        if assertion.expected_text in snapshot.text:
+            checks.append(f"text contains {assertion.expected_text!r}")
+        else:
+            failures.append(f"text did not contain {assertion.expected_text!r}")
+    if assertion.selector is not None:
+        parsed_selector = _parse_simple_selector(assertion.selector)
+        if isinstance(parsed_selector, ToolResult):
+            failures.append(
+                f"selector {assertion.selector!r} requires Playwright or a simple tag, #id, or .class selector"
+            )
+        else:
+            matches = _query_html(html, parsed_selector, max_results=1)
+            if matches:
+                checks.append(f"selector {assertion.selector!r} exists ({len(matches)} match(es))")
+            else:
+                failures.append(f"selector {assertion.selector!r} did not match")
+
+    return _format_assertion_result(
+        url=display_url,
+        mode=f"static fallback; Playwright unavailable ({playwright_error})",
+        failures=failures,
+        checks=checks,
+    )
+
+
+def _format_assertion_result(*, url: str, mode: str, failures: list[str], checks: list[str]) -> ToolResult:
+    passed = not failures
+    lines = [f"URL: {url}", f"Mode: {mode}", f"Assertion: {'pass' if passed else 'fail'}", ""]
+    lines.append("Passed checks:")
+    lines.extend(f"- {check}" for check in (checks or ["<none>"]))
+    lines.append("")
+    lines.append("Failures:")
+    lines.extend(f"- {failure}" for failure in (failures or ["<none>"]))
+    metadata = {
+        "url": url,
+        "mode": mode,
+        "passed": passed,
+        "passed_checks": len(checks),
+        "failures": len(failures),
+    }
+    if passed:
+        return ToolResult.success("\n".join(lines), **metadata)
+    return ToolResult.failure("\n".join(lines), **metadata)
 
 
 def _apply_browser_action(page: Any, action: _BrowserAction) -> None:

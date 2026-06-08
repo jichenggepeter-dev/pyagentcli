@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.12：Richer Browser Assertions
+- Phase 4.13：Per-Retriever Comparison Reports
 
 ## Roadmap 总览
 
@@ -638,30 +638,41 @@ User Goal
 
 名称：
 
-- Richer Browser Assertions
+- Per-Retriever Comparison Reports
 
 目标：
 
-- 为本地页面增加可审计的浏览器断言工具，支持检查 expected text、selector 是否存在、网络状态是否符合预期。
+- 在固定 RAG fixture 上比较 exact、vector、hybrid retrieval 的命中质量，为后续检索策略调优提供报告。
 
 第一小步：
 
-- 设计 browser assertion 输入：url、selector、expected_text、expected_status。
+- 设计 retriever comparison result：retriever name、case_id、rank、hit path、score。
 
 第二小步：
 
-- 保持 local-only URL 边界，不允许外部站点断言。
+- 在没有 embedding provider 时清晰标记 vector disabled，不影响 exact/hybrid 本地 eval。
 
 第三小步：
 
-- 补 Playwright 可选测试和未安装依赖的降级测试。
+- 输出 JSONL comparison report，并在 CLI summary 中展示各 retriever pass rate。
 
 完成标准：
 
-- 本地页面可断言文本和 selector。
-- 外部 URL 被拒绝。
-- 未安装 Playwright 时清晰降级。
+- 默认 eval 不依赖外部 embedding 服务。
+- exact/hybrid comparison 可在本地稳定运行。
+- vector 缺配置时 disabled reason 清晰。
 - 全量测试通过。
+
+## 最近完成：Richer Browser Assertions
+
+完成内容：
+
+- 新增 `browser_assert` 只读工具，支持 expected_text、selector、expected_status。
+- 工具保持 local-only URL 边界，拒绝外部 HTTP/HTTPS。
+- 无 Playwright 时使用静态 HTML fallback，可断言文本、简单 selector 和页面状态。
+- 有 Playwright 时使用真实渲染页面，可检查 JS 更新后的 DOM 和 CSS selector。
+- 补充核心 browser assertion 测试和可选 Playwright 成功路径测试。
+- 同步 `docs/browser.md`、`docs/roadmap.md`。
 
 ## 最近完成：Git Diff-Aware Reviewer
 

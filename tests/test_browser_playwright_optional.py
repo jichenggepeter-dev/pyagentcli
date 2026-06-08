@@ -158,3 +158,45 @@ def test_browser_network_logs_success_path_when_playwright_is_available(tmp_path
     assert "data.json" in result.content
     assert "status=200" in result.content
     assert "ready" not in result.content
+
+
+def test_browser_assert_success_path_when_playwright_is_available(tmp_path: Path) -> None:
+    pytest.importorskip("playwright.sync_api")
+    page = tmp_path / "assert.html"
+    page.write_text(
+        """
+<html>
+  <head><title>Assert Fixture</title></head>
+  <body>
+    <main id="app">Loading</main>
+    <script>
+      setTimeout(() => {
+        document.querySelector('#app').textContent = 'Ready from JS';
+        document.querySelector('#app').className = 'loaded';
+      }, 50);
+    </script>
+  </body>
+</html>
+""".strip(),
+        encoding="utf-8",
+    )
+    registry = default_registry()
+    context = make_context(tmp_path)
+
+    result = registry.execute(
+        "browser_assert",
+        {
+            "url": "assert.html",
+            "expected_text": "Ready from JS",
+            "selector": "#app.loaded",
+            "expected_status": 200,
+            "wait_ms": 150,
+        },
+        context,
+    )
+
+    skip_if_browser_binary_missing(result.error)
+    assert result.ok
+    assert "Mode: playwright" in result.content
+    assert "Assertion: pass" in result.content
+    assert "Ready from JS" in result.content

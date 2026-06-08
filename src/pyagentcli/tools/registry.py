@@ -88,6 +88,7 @@ def _tool_preview(tool: Tool, args: dict[str, Any], context: ToolContext) -> str
 
 def default_registry() -> ToolRegistry:
     from pyagentcli.tools.browser import (
+        BrowserAssertTool,
         BrowserConsoleLogsTool,
         BrowserDomSnapshotTool,
         BrowserInteractTool,
@@ -110,6 +111,7 @@ def default_registry() -> ToolRegistry:
     registry.register(InspectPageTool())
     registry.register(BrowserDomSnapshotTool())
     registry.register(BrowserQuerySelectorTool())
+    registry.register(BrowserAssertTool())
     registry.register(BrowserConsoleLogsTool())
     registry.register(BrowserScreenshotTool())
     registry.register(BrowserNetworkLogsTool())

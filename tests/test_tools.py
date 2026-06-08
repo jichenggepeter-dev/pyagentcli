@@ -192,6 +192,7 @@ def test_default_registry_exposes_edit_file_schema() -> None:
     assert "inspect_page" in tool_names
     assert "browser_dom_snapshot" in tool_names
     assert "browser_query_selector" in tool_names
+    assert "browser_assert" in tool_names
     assert "browser_console_logs" in tool_names
     assert "browser_screenshot" in tool_names
     assert "browser_network_logs" in tool_names
@@ -337,6 +338,83 @@ def test_browser_query_selector_rejects_external_url(tmp_path: Path) -> None:
     context = make_context(tmp_path, ApproveAll())
 
     result = registry.execute("browser_query_selector", {"url": "https://example.com", "selector": "main"}, context)
+
+    assert not result.ok
+    assert "Only local browser URLs are allowed" in (result.error or "")
+
+
+def test_browser_assert_static_text_selector_and_status(tmp_path: Path) -> None:
+    page = tmp_path / "index.html"
+    page.write_text(
+        """
+<html>
+  <head><title>Assert Demo</title></head>
+  <body>
+    <main id="app">
+      <h1>Dashboard</h1>
+      <p class="status">Ready</p>
+    </main>
+  </body>
+</html>
+""".strip(),
+        encoding="utf-8",
+    )
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute(
+        "browser_assert",
+        {
+            "url": "index.html",
+            "expected_text": "Ready",
+            "selector": ".status",
+            "expected_status": 200,
+        },
+        context,
+    )
+
+    assert result.ok
+    assert "Assertion: pass" in result.content
+    assert "text contains 'Ready'" in result.content
+    assert "selector '.status' exists" in result.content
+    assert "status == 200" in result.content
+    assert result.metadata["passed"] is True
+
+
+def test_browser_assert_reports_failed_checks(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text("<main id='app'>Waiting</main>", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute(
+        "browser_assert",
+        {"url": "index.html", "expected_text": "Ready", "selector": "#missing"},
+        context,
+    )
+
+    assert not result.ok
+    assert "Assertion: fail" in (result.error or "")
+    assert "text did not contain 'Ready'" in (result.error or "")
+    assert "selector '#missing' did not match" in (result.error or "")
+    assert result.metadata["passed"] is False
+
+
+def test_browser_assert_requires_a_check(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text("<main>Ready</main>", encoding="utf-8")
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_assert", {"url": "index.html"}, context)
+
+    assert not result.ok
+    assert "requires at least one" in (result.error or "")
+
+
+def test_browser_assert_rejects_external_url(tmp_path: Path) -> None:
+    registry = default_registry()
+    context = make_context(tmp_path, ApproveAll())
+
+    result = registry.execute("browser_assert", {"url": "https://example.com", "expected_text": "Example"}, context)
 
     assert not result.ok
     assert "Only local browser URLs are allowed" in (result.error or "")

@@ -1,4 +1,4 @@
-# Browser v0.4
+# Browser v0.5
 
 PyAgentCLI includes a first local page inspection tool:
 
@@ -10,6 +10,7 @@ browser_console_logs(url, wait_ms=500)
 browser_screenshot(url, output_path=".pyagent/browser/screenshot.png")
 browser_interact(url, actions, max_chars=2000)
 browser_network_logs(url, wait_ms=500, max_entries=50)
+browser_assert(url, expected_text, selector, expected_status, wait_ms=500)
 ```
 
 This is a deliberately local-first browser slice. It lets the agent inspect local HTML pages and localhost web apps without opening arbitrary external websites.
@@ -57,6 +58,14 @@ It skips `script`, `style`, and `noscript` content.
 
 Complex CSS selectors are intentionally rejected in this static parser slice.
 
+`browser_assert` checks local pages against expected conditions:
+
+- expected text in the page body
+- selector presence
+- main page status
+
+Without Playwright, it uses a static local HTML fallback for workspace files and localhost HTML. Static selector fallback supports tag, `#id`, and `.class` selectors. With Playwright installed, it uses the rendered page after `wait_ms`, so CSS selectors and JavaScript-updated DOM text can be checked.
+
 `browser_console_logs`, `browser_screenshot`, `browser_interact`, and `browser_network_logs` are optional Playwright-backed tools. If Playwright is not installed, they return a clear failure explaining that optional browser dependencies are missing.
 
 `browser_network_logs` returns request and response summaries:
@@ -89,11 +98,12 @@ Hello PyAgent Status READY
 
 ## Optional Playwright Support
 
-Browser v0.4 keeps Playwright optional:
+Browser v0.5 keeps Playwright optional:
 
 - no browser dependency is required for the core CLI
-- DOM snapshots work without Playwright for static local HTML
+- DOM snapshots and static browser assertions work without Playwright for local HTML
 - console logs, screenshots, and network logs require Playwright when available
+- rendered DOM assertions use Playwright when available
 - click/type/wait interactions require Playwright and approval
 - screenshot output is restricted to `.pyagent/browser/`
 
@@ -122,7 +132,7 @@ Those tests are skipped when the Playwright Python package is missing. If the pa
 
 ## Non-Goals
 
-Browser v0.4 does not yet include:
+Browser v0.5 does not yet include:
 
 - complex CSS selector support
 - external website browsing

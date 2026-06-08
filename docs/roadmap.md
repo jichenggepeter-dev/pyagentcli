@@ -159,6 +159,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - read-only `browser_network_logs` for local request/response summaries
 - network logs include method, URL, status, resource type, and failure only
 - request/response bodies and headers are not recorded
+- read-only `browser_assert` for expected text, selector presence, and page status
+- browser assertions keep local-only URL boundaries and use static fallback when Playwright is unavailable
 
 ### Multi-Agent v0.3
 
@@ -175,10 +177,6 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Not Yet Built
 
-### Advanced Browser Tools
-
-- richer interaction assertions
-
 ### Advanced RAG
 
 - richer dependency context such as imported-by edges
@@ -193,11 +191,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Richer Browser Assertions**
-   Add local-only assertions for expected text, selector state, and network status.
-
-2. **Per-Retriever Comparison Reports**
+1. **Per-Retriever Comparison Reports**
    Compare exact, vector, and hybrid retrieval quality on fixed retrieval fixtures.
 
-3. **Richer Changed-File Risk Scoring**
+2. **Richer Changed-File Risk Scoring**
    Score Reviewer risk by changed file type, path sensitivity, and diff size.
+
+3. **Browser Assertion Evals**
+   Add eval cases that validate browser assertions on fixed local HTML fixtures.
