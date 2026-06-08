@@ -746,6 +746,6 @@ Skill 定义任务 workflow guidance。
 
 下一篇进入：
 
-> 多模型适配和 LLM Client
+> [多模型适配和 LLM Client](11_multi_model_llm_client.md)
 
 Prompt/Skill 解决的是“给模型什么指导”；多模型适配解决的是“用哪个模型、怎样配置、怎样检查模型是否支持 tool calling、怎样做 model comparison”。
