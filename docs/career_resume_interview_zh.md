@@ -5,11 +5,13 @@
 请从这里开始：
 
 - [PyAgentCLI 学习路线总览](career_learning_path/00_index.md)
+- [PyAgentCLI 学习路线 v2 设计稿](career_learning_path/v2_learning_route_design_zh.md)
 
 核心章节：
 
-- [01 项目定位](career_learning_path/01_project_positioning.md)
-- [02 先把项目跑起来](career_learning_path/02_run_project.md)
+- [01 先跑通 PyAgentCLI](career_learning_path/01_run_project.md)
+- [旧版项目定位](career_learning_path/01_project_positioning.md)
+- [旧版先把项目跑起来](career_learning_path/02_run_project.md)
 - [03 简历篇：AI Agent 岗位写法](career_learning_path/03_resume_ai_agent.md)
 - [04 简历篇：后端 / 平台 / 工具岗位写法](career_learning_path/04_resume_backend_platform.md)
 - [05 面试篇：ReAct、Plan-and-Execute、Multi-Agent](career_learning_path/05_interview_react_plan_multi_agent.md)
