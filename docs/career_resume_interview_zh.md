@@ -29,6 +29,7 @@
 - [19 面试题第四弹：MCP、Browser Tools、CDP 思路](career_learning_path/19_interview_mcp_browser_cdp.md)
 - [20 面试题第五弹：Prompt 分层、Skill 系统、提示词工程](career_learning_path/20_interview_prompt_skill_system.md)
 - [21 面试题第六弹：CLI 产品化、Git、Runtime API](career_learning_path/21_interview_cli_git_runtime.md)
+- [22 面试题第七弹：多模型适配、运行时切换、成本控制](career_learning_path/22_interview_multi_model_cost.md)
 - [旧版项目定位](career_learning_path/01_project_positioning.md)
 - [旧版先把项目跑起来](career_learning_path/02_run_project.md)
 - [03 简历篇：AI Agent 岗位写法](career_learning_path/03_resume_ai_agent.md)

@@ -169,7 +169,7 @@ PyAgentCLI 里怎么实现
 - [19 面试题第四弹：MCP、Browser Tools、CDP 思路](19_interview_mcp_browser_cdp.md)
 - [20 面试题第五弹：Prompt 分层、Skill 系统、提示词工程](20_interview_prompt_skill_system.md)
 - [21 面试题第六弹：CLI 产品化、Git、Runtime API](21_interview_cli_git_runtime.md)
-- 22 面试题第七弹：多模型适配、运行时切换、成本控制
+- [22 面试题第七弹：多模型适配、运行时切换、成本控制](22_interview_multi_model_cost.md)
 
 ### 复盘篇
 
