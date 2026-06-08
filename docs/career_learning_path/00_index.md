@@ -163,7 +163,7 @@ PyAgentCLI 里怎么实现
 
 ### 面试篇
 
-- 16 面试题第一弹：ReAct、Plan-and-Execute、Multi-Agent
+- [16 面试题第一弹：ReAct、Plan-and-Execute、Multi-Agent](16_interview_react_plan_multi_agent.md)
 - 17 面试题第二弹：Memory、RAG、长上下文工程
 - 18 面试题第三弹：Tool Call、HITL、安全策略
 - 19 面试题第四弹：MCP、Browser Tools、CDP 思路
