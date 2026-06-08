@@ -150,7 +150,7 @@ PyAgentCLI 里怎么实现
 - [06 Tool Call、HITL 和安全策略](06_tool_hitl_safety.md)
 - [07 Multi-Agent](07_multi_agent.md)
 - [08 Browser Tools 和联网搜索](08_browser_search.md)
-- 09 接入 MCP
+- [09 接入 MCP](09_mcp_integration.md)
 - 10 Prompt 分层和 Skill System
 - 11 多模型适配和 LLM Client
 - 12 产品化：CLI UX、Git、Runtime API

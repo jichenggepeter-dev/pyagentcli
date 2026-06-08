@@ -850,6 +850,6 @@ optional tests 应该 skip，并保留能力诊断命令。
 
 下一篇进入：
 
-> MCP 接入
+> [MCP 接入](09_mcp_integration.md)
 
 Browser Tools 解决的是本地页面观察；MCP 解决的是如何把外部工具生态接入 PyAgentCLI，同时仍然复用本地 ToolRegistry、安全策略、审批和审计。
