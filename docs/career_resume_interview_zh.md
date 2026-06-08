@@ -26,6 +26,7 @@
 - [16 面试题第一弹：ReAct、Plan-and-Execute、Multi-Agent](career_learning_path/16_interview_react_plan_multi_agent.md)
 - [17 面试题第二弹：Memory、RAG、长上下文工程](career_learning_path/17_interview_memory_rag_context.md)
 - [18 面试题第三弹：Tool Call、HITL、安全策略](career_learning_path/18_interview_tool_hitl_safety.md)
+- [19 面试题第四弹：MCP、Browser Tools、CDP 思路](career_learning_path/19_interview_mcp_browser_cdp.md)
 - [旧版项目定位](career_learning_path/01_project_positioning.md)
 - [旧版先把项目跑起来](career_learning_path/02_run_project.md)
 - [03 简历篇：AI Agent 岗位写法](career_learning_path/03_resume_ai_agent.md)

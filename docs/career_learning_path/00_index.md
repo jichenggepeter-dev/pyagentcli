@@ -166,7 +166,7 @@ PyAgentCLI 里怎么实现
 - [16 面试题第一弹：ReAct、Plan-and-Execute、Multi-Agent](16_interview_react_plan_multi_agent.md)
 - [17 面试题第二弹：Memory、RAG、长上下文工程](17_interview_memory_rag_context.md)
 - [18 面试题第三弹：Tool Call、HITL、安全策略](18_interview_tool_hitl_safety.md)
-- 19 面试题第四弹：MCP、Browser Tools、CDP 思路
+- [19 面试题第四弹：MCP、Browser Tools、CDP 思路](19_interview_mcp_browser_cdp.md)
 - 20 面试题第五弹：Prompt 分层、Skill 系统、提示词工程
 - 21 面试题第六弹：CLI 产品化、Git、Runtime API
 - 22 面试题第七弹：多模型适配、运行时切换、成本控制
