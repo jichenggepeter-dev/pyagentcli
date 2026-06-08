@@ -104,6 +104,59 @@ def test_reviewer_includes_git_diff_summary(tmp_path: Path) -> None:
     assert "app.py (+1/-1)" in artifact.read_text(encoding="utf-8")
 
 
+def test_reviewer_scores_changed_file_risk_by_path_and_size(tmp_path: Path) -> None:
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "pyagent@example.test")
+    _git(tmp_path, "config", "user.name", "PyAgent Test")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "src" / "pyagentcli" / "safety").mkdir(parents=True)
+    (tmp_path / "src" / "pyagentcli" / "tools").mkdir(parents=True)
+    (tmp_path / "docs" / "guide.md").write_text("Old docs\n", encoding="utf-8")
+    (tmp_path / "src" / "pyagentcli" / "safety" / "policy.py").write_text("ALLOW = True\n", encoding="utf-8")
+    (tmp_path / "src" / "pyagentcli" / "tools" / "browser.py").write_text("old\n" * 10, encoding="utf-8")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-m", "baseline")
+    (tmp_path / "docs" / "guide.md").write_text("New docs\n", encoding="utf-8")
+    (tmp_path / "src" / "pyagentcli" / "safety" / "policy.py").write_text("ALLOW = False\n", encoding="utf-8")
+    (tmp_path / "src" / "pyagentcli" / "tools" / "browser.py").write_text("new\n" * 80, encoding="utf-8")
+    run = PlanRun(
+        plan_id="plan_file_risk",
+        goal="change reviewer inputs",
+        status=PlanRunStatus.SUCCESS,
+        plan=PlanPreview(
+            summary="Change files",
+            steps=[
+                PlanStep(
+                    id="S1",
+                    title="Edit files",
+                    description="Edit files.",
+                    suggested_tools=["edit_file"],
+                    risk="WRITE",
+                    status="success",
+                ),
+            ],
+        ),
+    )
+
+    report = Reviewer(tmp_path).review_plan(run)
+    risks_by_path = {risk.path: risk for risk in report.git_diff.file_risks}
+    text = report.format_text()
+
+    assert risks_by_path["docs/guide.md"].level == "low"
+    assert "documentation changed" in risks_by_path["docs/guide.md"].reasons
+    assert risks_by_path["src/pyagentcli/safety/policy.py"].level == "high"
+    assert "safety boundary path changed" in risks_by_path["src/pyagentcli/safety/policy.py"].reasons
+    assert "run tests/test_safety_policy.py" in risks_by_path["src/pyagentcli/safety/policy.py"].suggested_tests
+    assert risks_by_path["src/pyagentcli/tools/browser.py"].level == "high"
+    assert "tool execution path changed" in risks_by_path["src/pyagentcli/tools/browser.py"].reasons
+    assert "medium diff size" in " ".join(risks_by_path["src/pyagentcli/tools/browser.py"].reasons)
+    assert "Changed-file risk scoring:" in text
+    assert "HIGH src/pyagentcli/safety/policy.py" in text
+    assert "HIGH src/pyagentcli/tools/browser.py" in text
+    assert "LOW docs/guide.md" in text
+    assert "High-risk changed files:" in text
+
+
 def test_reviewer_handles_non_git_workspace(tmp_path: Path) -> None:
     run = PlanRun(
         plan_id="plan_no_git",

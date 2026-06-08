@@ -76,6 +76,24 @@ class GitChangedFile:
     added_lines: int
     removed_lines: int
 
+    @property
+    def changed_lines(self) -> int:
+        return self.added_lines + self.removed_lines
+
+
+@dataclass(frozen=True)
+class ChangedFileRisk:
+    path: str
+    level: str
+    score: int
+    reasons: list[str]
+    suggested_tests: list[str]
+
+    def format_text(self) -> str:
+        reasons = "; ".join(self.reasons) if self.reasons else "No special risk signals."
+        tests = "; ".join(self.suggested_tests) if self.suggested_tests else "No specific test suggestion."
+        return f"{self.level.upper()} {self.path} (score={self.score}): {reasons} Suggested: {tests}"
+
 
 @dataclass(frozen=True)
 class GitDiffSummary:
@@ -84,6 +102,7 @@ class GitDiffSummary:
     message: str
     changed_files: list[GitChangedFile]
     hunks: list[str]
+    file_risks: list[ChangedFileRisk]
 
     def format_text(self) -> str:
         lines = ["Git diff summary:"]
@@ -98,6 +117,11 @@ class GitDiffSummary:
             lines.append("  - <none>")
         lines.append("- Key hunks:")
         lines.extend(f"  - {hunk}" for hunk in (self.hunks or ["<none>"]))
+        lines.append("- Changed-file risk scoring:")
+        if self.file_risks:
+            lines.extend(f"  - {risk.format_text()}" for risk in self.file_risks)
+        else:
+            lines.append("  - <none>")
         return "\n".join(lines)
 
 
@@ -312,6 +336,16 @@ def _model_review_prompt(
                     }
                     for file in git_diff.changed_files
                 ],
+                "file_risks": [
+                    {
+                        "path": risk.path,
+                        "level": risk.level,
+                        "score": risk.score,
+                        "reasons": risk.reasons,
+                        "suggested_tests": risk.suggested_tests,
+                    }
+                    for risk in git_diff.file_risks
+                ],
             },
         },
         "steps": steps,
@@ -375,6 +409,7 @@ def _git_diff_summary(workspace_root: Path) -> GitDiffSummary:
             message="workspace is not a git repository",
             changed_files=[],
             hunks=[],
+            file_risks=[],
         )
 
     numstat = _run_git(workspace_root, "diff", "HEAD", "--numstat", "--")
@@ -398,13 +433,16 @@ def _git_diff_summary(workspace_root: Path) -> GitDiffSummary:
             message="no uncommitted git diff found",
             changed_files=[],
             hunks=[],
+            file_risks=[],
         )
+    file_risks = [_score_changed_file(file) for file in changed_files]
     return GitDiffSummary(
         available=True,
         has_diff=True,
         message=f"{len(changed_files)} changed file(s) in git diff",
         changed_files=changed_files,
         hunks=hunks,
+        file_risks=file_risks,
     )
 
 
@@ -481,6 +519,96 @@ def _untracked_files(workspace_root: Path) -> list[str]:
     return paths
 
 
+def _score_changed_file(file: GitChangedFile) -> ChangedFileRisk:
+    path = file.path
+    lower = path.lower()
+    score = 1
+    reasons: list[str] = []
+    suggested_tests: list[str] = []
+
+    if lower.startswith("src/pyagentcli/safety/"):
+        score += 7
+        reasons.append("safety boundary path changed")
+        suggested_tests.append("run tests/test_safety_policy.py")
+    elif lower.startswith("src/pyagentcli/tools/"):
+        score += 4
+        reasons.append("tool execution path changed")
+        suggested_tests.append("run tests/test_tools.py")
+    elif lower.startswith("src/pyagentcli/llm/"):
+        score += 4
+        reasons.append("LLM adapter or tool-calling path changed")
+        suggested_tests.append("run tests/test_llm_model_config.py and model smoke checks")
+    elif lower.startswith("src/pyagentcli/agent/"):
+        score += 3
+        reasons.append("agent orchestration path changed")
+        suggested_tests.append("run planner, executor, and reviewer tests")
+    elif lower.startswith("src/pyagentcli/rag/"):
+        score += 3
+        reasons.append("retrieval/indexing path changed")
+        suggested_tests.append("run RAG indexer and retriever tests")
+    elif lower.startswith("src/"):
+        score += 2
+        reasons.append("runtime source file changed")
+        suggested_tests.append("run focused Python tests for touched module")
+
+    if lower.startswith("tests/"):
+        score += 1
+        reasons.append("test coverage changed")
+        suggested_tests.append("run the changed test file")
+    if lower.startswith("docs/") or lower.endswith((".md", ".rst")):
+        reasons.append("documentation changed")
+        suggested_tests.append("review rendered documentation text")
+    if lower in {"pyproject.toml", "requirements.txt"} or lower.endswith((".lock", "lockfile")):
+        score += 3
+        reasons.append("packaging or dependency metadata changed")
+        suggested_tests.append("run packaging and install smoke tests")
+    if lower.endswith((".yml", ".yaml", ".toml", ".json")) and not lower.startswith("docs/"):
+        score += 2
+        reasons.append("configuration file changed")
+        suggested_tests.append("run config and packaging tests")
+
+    if file.changed_lines >= 200:
+        score += 3
+        reasons.append(f"large diff size ({file.changed_lines} changed lines)")
+    elif file.changed_lines >= 50:
+        score += 2
+        reasons.append(f"medium diff size ({file.changed_lines} changed lines)")
+    elif file.changed_lines > 0:
+        reasons.append(f"small diff size ({file.changed_lines} changed lines)")
+
+    if file.removed_lines >= 50:
+        score += 2
+        reasons.append(f"many removed lines ({file.removed_lines})")
+    elif file.removed_lines > file.added_lines and file.removed_lines >= 10:
+        score += 1
+        reasons.append("deletion-heavy diff")
+
+    level = _risk_level_from_score(score)
+    return ChangedFileRisk(
+        path=path,
+        level=level,
+        score=score,
+        reasons=_dedupe_text(reasons),
+        suggested_tests=_dedupe_text(suggested_tests),
+    )
+
+
+def _risk_level_from_score(score: int) -> str:
+    if score >= 7:
+        return "high"
+    if score >= 5:
+        return "medium"
+    return "low"
+
+
+def _dedupe_text(values: list[str]) -> list[str]:
+    deduped: list[str] = []
+    for value in values:
+        if value and value not in deduped:
+            deduped.append(value)
+    return deduped
+
+
 def _risk_notes(run: PlanRun, git_diff: GitDiffSummary) -> list[str]:
     notes: list[str] = []
     risks = {str(step.risk).upper() for step in run.plan.steps}
@@ -500,6 +628,14 @@ def _risk_notes(run: PlanRun, git_diff: GitDiffSummary) -> list[str]:
     if git_diff.has_diff:
         changed_paths = [file.path.lower() for file in git_diff.changed_files]
         notes.append("Git diff present: review changed files before accepting the plan.")
+        high_risk = [risk for risk in git_diff.file_risks if risk.level == "high"]
+        medium_risk = [risk for risk in git_diff.file_risks if risk.level == "medium"]
+        if high_risk:
+            paths = ", ".join(risk.path for risk in high_risk[:5])
+            notes.append(f"High-risk changed files: {paths}.")
+        if medium_risk:
+            paths = ", ".join(risk.path for risk in medium_risk[:5])
+            notes.append(f"Medium-risk changed files: {paths}.")
         if any(path.endswith(".py") for path in changed_paths):
             notes.append("Python files changed in git diff: run focused pytest coverage.")
         if any(path.endswith((".md", ".rst")) for path in changed_paths):
@@ -524,7 +660,9 @@ def _suggest_tests(run: PlanRun, paths: list[str], git_diff: GitDiffSummary) -> 
         suggestions.append("Run the smallest relevant verification command for the changed files.")
     if "EXECUTE" in risks:
         suggestions.append("Re-run approved shell verification if the output was inconclusive.")
-    return suggestions
+    for risk in git_diff.file_risks:
+        suggestions.extend(risk.suggested_tests)
+    return _dedupe_text(suggestions)
 
 
 def _gate_decision(reviewer_input: ReviewerInputContract) -> ReviewerGateDecision:

@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.14：Richer Changed-File Risk Scoring
+- Phase 4.15：Browser Assertion Evals
 
 ## Roadmap 总览
 
@@ -638,29 +638,42 @@ User Goal
 
 名称：
 
-- Richer Changed-File Risk Scoring
+- Browser Assertion Evals
 
 目标：
 
-- 在 Reviewer 已经读取 git diff 的基础上，按变更文件类型、路径敏感度和 diff 大小输出更细的风险评分。
+- 增加固定本地 HTML fixture，验证 `browser_assert` 是否能正确判断文本、selector、status 和越权 URL。
 
 第一小步：
 
-- 设计 changed-file risk 输入：path、added_lines、removed_lines、file_type。
+- 设计 browser assertion eval case：url、expected_text、selector、expected_status、expected_pass。
 
 第二小步：
 
-- 为关键路径如 `src/pyagentcli/safety/**`、`tools/**`、`llm/**` 提高风险提示。
+- 将 browser assertion 结果写入 JSONL report，不依赖外部网站。
 
 第三小步：
 
-- 将风险评分写入 Reviewer artifact，不改变 deterministic gate 判定。
+- 覆盖静态 HTML fallback 和外部 URL denial。
 
 完成标准：
 
-- 小 diff / 文档 diff / safety/tooling diff 能产生不同风险说明。
-- 非 git workspace 和无 diff 行为不变。
+- 默认 eval 不需要 Playwright。
+- 本地 fixture 文本、selector、status 断言可稳定通过。
+- 外部 URL 断言稳定失败且原因清晰。
 - 全量测试通过。
+
+## 最近完成：Richer Changed-File Risk Scoring
+
+完成内容：
+
+- Reviewer 新增 `ChangedFileRisk`，按 path、file type、diff size、删除行数计算 risk level 和 score。
+- Safety 路径小 diff 也标为 high；tools 路径叠加中型 diff 标为 high。
+- 文档小 diff 标为 low，并建议 review rendered documentation。
+- 风险评分写入 Review artifact 的 `Changed-file risk scoring` 区块。
+- 风险评分进入 `Risks` 和 `Suggested tests` 汇总，但不改变 deterministic gate。
+- model-backed Reviewer prompt 同步接收 file risk metadata。
+- 补充 docs / safety / tools 不同风险等级测试，并同步 `docs/reviewer.md`、`docs/roadmap.md`。
 
 ## 最近完成：Per-Retriever Comparison Reports
 

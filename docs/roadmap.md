@@ -176,6 +176,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - read-only Reviewer retry proposals for failed, skipped, or cancelled steps
 - optional model-backed Reviewer suggestions alongside deterministic retry proposals
 - git diff-aware Reviewer artifacts for changed files, line counts, and bounded hunk headers
+- changed-file risk scoring by path sensitivity, file type, diff size, and deletion-heavy changes
 
 ## Not Yet Built
 
@@ -192,11 +193,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Richer Changed-File Risk Scoring**
-   Score Reviewer risk by changed file type, path sensitivity, and diff size.
-
-2. **Browser Assertion Evals**
+1. **Browser Assertion Evals**
    Add eval cases that validate browser assertions on fixed local HTML fixtures.
 
-3. **Imported-By Dependency Context**
+2. **Imported-By Dependency Context**
    Add reverse dependency context to RAG retrieval and context injection.
+
+3. **Reviewer Risk Scoring Evals**
+   Add eval fixtures that score docs, tools, safety, and deletion-heavy diffs.
