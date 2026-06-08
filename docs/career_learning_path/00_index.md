@@ -175,7 +175,7 @@ PyAgentCLI 里怎么实现
 
 - [23 开发复盘：我们真实遇到的问题](23_development_pitfalls_review.md)
 - [24 一分钟项目介绍和高频追问](24_pitch_and_followups_v2.md)
-- 25 知识库卡片和复习路线
+- [25 知识库卡片和复习路线](25_knowledge_cards_review_route.md)
 
 ## 每篇实战文档怎么写
 
