@@ -802,6 +802,6 @@ RAG 检索代码事实。
 
 下一篇进入：
 
-> RAG 代码检索
+> [RAG 代码检索](05_rag_code_retrieval.md)
 
 Memory 解决的是跨任务偏好和历史；RAG 解决的是当前代码库事实。一个 Coding Agent 如果只靠 Memory，会记住很多主观经验；如果没有 RAG，就很难拿到准确、新鲜的代码上下文。
