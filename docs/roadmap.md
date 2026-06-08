@@ -171,6 +171,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - role-level model and prompt config for Planner, Executor, and Reviewer
 - read-only Reviewer retry proposals for failed, skipped, or cancelled steps
 - optional model-backed Reviewer suggestions alongside deterministic retry proposals
+- git diff-aware Reviewer artifacts for changed files, line counts, and bounded hunk headers
 
 ## Not Yet Built
 
@@ -192,11 +193,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Git Diff-Aware Reviewer**
-   Include git diff summaries in Reviewer artifacts when the workspace is a git repository.
-
-2. **Richer Browser Assertions**
+1. **Richer Browser Assertions**
    Add local-only assertions for expected text, selector state, and network status.
 
-3. **Per-Retriever Comparison Reports**
+2. **Per-Retriever Comparison Reports**
    Compare exact, vector, and hybrid retrieval quality on fixed retrieval fixtures.
+
+3. **Richer Changed-File Risk Scoring**
+   Score Reviewer risk by changed file type, path sensitivity, and diff size.

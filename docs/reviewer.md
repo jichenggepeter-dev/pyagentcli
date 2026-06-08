@@ -1,10 +1,12 @@
-# Reviewer Agent v0.2
+# Reviewer Agent v0.3
 
 Reviewer runs after planned execution.
 
 The core gate is deterministic: it reads the completed `PlanRun`, step risks, execution result, and recent audit logs.
 
 Reviewer v0.2 can also add an optional model-backed suggestion when `[agents.reviewer].model` is configured and an API key is available. That model suggestion is advisory only. It cannot override the deterministic gate and it never executes tools or retries steps.
+
+Reviewer v0.3 adds git diff awareness for local repositories. When the workspace is a git repository, the review artifact includes changed files, added and removed line counts, and bounded hunk headers. Non-git workspaces and clean git repositories are reported clearly instead of failing.
 
 ## What It Reports
 
@@ -16,6 +18,7 @@ The review output includes:
 - suggested tests
 - observed tools
 - observed paths
+- git diff summary when available
 - optional model-backed reviewer suggestion
 
 The result is written back into the persisted plan as `review_result`, so `--show-plan PLAN_ID` displays it.
@@ -35,6 +38,7 @@ The optional model reviewer receives a bounded JSON summary:
 - step statuses and risks
 - deterministic gate result
 - deterministic retry proposal
+- git diff metadata when available
 
 It must return JSON with:
 
@@ -60,6 +64,6 @@ For a local coding agent, the first reviewer should be predictable and auditable
 
 ## Next Steps
 
-1. Include git diff summaries when the workspace is a git repository.
-2. Add per-model trace comparison reports.
-3. Add richer risk scoring for changed files.
+1. Add richer risk scoring for changed files.
+2. Add Browser assertion tools for local pages.
+3. Add per-retriever comparison reports.

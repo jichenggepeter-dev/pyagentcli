@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 from pyagentcli.agent.planner import PlanPreview, PlanRun, PlanRunStatus, PlanStep
@@ -56,6 +57,94 @@ def test_reviewer_reports_risks_and_suggested_tests(tmp_path: Path) -> None:
     assert "EXECUTE step present" in report.format_text()
     assert "Run the focused Python test suite" in report.format_text()
     assert (tmp_path / ".pyagent" / "reviews" / "plan_review.md").exists()
+
+
+def test_reviewer_includes_git_diff_summary(tmp_path: Path) -> None:
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "pyagent@example.test")
+    _git(tmp_path, "config", "user.name", "PyAgent Test")
+    (tmp_path / "app.py").write_text("def status():\n    return 'TODO'\n", encoding="utf-8")
+    _git(tmp_path, "add", "app.py")
+    _git(tmp_path, "commit", "-m", "baseline")
+    (tmp_path / "app.py").write_text("def status():\n    return 'READY'\n", encoding="utf-8")
+    (tmp_path / "notes.md").write_text("New review note.\n", encoding="utf-8")
+    run = PlanRun(
+        plan_id="plan_git_diff",
+        goal="update status",
+        status=PlanRunStatus.SUCCESS,
+        plan=PlanPreview(
+            summary="Update status",
+            steps=[
+                PlanStep(
+                    id="S1",
+                    title="Edit app",
+                    description="Edit app.py.",
+                    suggested_tools=["edit_file"],
+                    risk="WRITE",
+                    status="success",
+                ),
+            ],
+        ),
+    )
+
+    report = Reviewer(tmp_path).review_plan(run)
+    text = report.format_text()
+    artifact = tmp_path / ".pyagent" / "reviews" / "plan_git_diff.md"
+
+    assert report.git_diff.available is True
+    assert report.git_diff.has_diff is True
+    assert {file.path for file in report.git_diff.changed_files} == {"app.py", "notes.md"}
+    assert "git diff changed: app.py" in report.summary
+    assert "Git diff summary:" in text
+    assert "app.py (+1/-1)" in text
+    assert "notes.md (+0/-0)" in text
+    assert "notes.md: untracked file" in text
+    assert "Python files changed in git diff" in text
+    assert "Run the focused Python test suite" in text
+    assert "app.py (+1/-1)" in artifact.read_text(encoding="utf-8")
+
+
+def test_reviewer_handles_non_git_workspace(tmp_path: Path) -> None:
+    run = PlanRun(
+        plan_id="plan_no_git",
+        goal="update docs",
+        status=PlanRunStatus.SUCCESS,
+        plan=PlanPreview(
+            summary="Update docs",
+            steps=[PlanStep(id="S1", title="Read", description="Read.", risk="READ", status="success")],
+        ),
+    )
+
+    report = Reviewer(tmp_path).review_plan(run)
+
+    assert report.git_diff.available is False
+    assert report.git_diff.has_diff is False
+    assert "workspace is not a git repository" in report.format_text()
+
+
+def test_reviewer_reports_git_repo_with_no_diff(tmp_path: Path) -> None:
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "pyagent@example.test")
+    _git(tmp_path, "config", "user.name", "PyAgent Test")
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    _git(tmp_path, "add", "README.md")
+    _git(tmp_path, "commit", "-m", "baseline")
+    run = PlanRun(
+        plan_id="plan_clean_git",
+        goal="inspect docs",
+        status=PlanRunStatus.SUCCESS,
+        plan=PlanPreview(
+            summary="Inspect docs",
+            steps=[PlanStep(id="S1", title="Read", description="Read.", risk="READ", status="success")],
+        ),
+    )
+
+    report = Reviewer(tmp_path).review_plan(run)
+
+    assert report.git_diff.available is True
+    assert report.git_diff.has_diff is False
+    assert "no uncommitted git diff found" in report.format_text()
+    assert "No uncommitted git diff found for Reviewer to inspect." in report.format_text()
 
 
 def test_reviewer_notes_failed_and_skipped_steps(tmp_path: Path) -> None:
@@ -203,3 +292,7 @@ def test_reviewer_sanitizes_invalid_model_suggestion(tmp_path: Path) -> None:
     assert report.model_suggestion is not None
     assert report.model_suggestion.recommended_action == "inspect"
     assert report.model_suggestion.confidence == "low"
+
+
+def _git(cwd: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True)

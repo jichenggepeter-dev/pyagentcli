@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -70,6 +71,37 @@ class ModelReviewSuggestion:
 
 
 @dataclass(frozen=True)
+class GitChangedFile:
+    path: str
+    added_lines: int
+    removed_lines: int
+
+
+@dataclass(frozen=True)
+class GitDiffSummary:
+    available: bool
+    has_diff: bool
+    message: str
+    changed_files: list[GitChangedFile]
+    hunks: list[str]
+
+    def format_text(self) -> str:
+        lines = ["Git diff summary:"]
+        lines.append(f"- Status: {self.message}")
+        lines.append("- Changed files:")
+        if self.changed_files:
+            lines.extend(
+                f"  - {file.path} (+{file.added_lines}/-{file.removed_lines})"
+                for file in self.changed_files
+            )
+        else:
+            lines.append("  - <none>")
+        lines.append("- Key hunks:")
+        lines.extend(f"  - {hunk}" for hunk in (self.hunks or ["<none>"]))
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
 class ReviewReport:
     summary: str
     risks: list[str]
@@ -78,6 +110,7 @@ class ReviewReport:
     paths: list[str]
     gate: ReviewerGateDecision
     handoff_recommendation: str
+    git_diff: GitDiffSummary
     retry_proposal: RetryProposal | None = None
     model_suggestion: ModelReviewSuggestion | None = None
 
@@ -97,6 +130,7 @@ class ReviewReport:
         lines.append("")
         lines.append("Observed paths:")
         lines.extend(f"- {path}" for path in (self.paths or ["<none>"]))
+        lines.extend(["", self.git_diff.format_text()])
         if self.retry_proposal is not None:
             lines.extend(["", self.retry_proposal.format_text()])
         if self.model_suggestion is not None:
@@ -120,9 +154,10 @@ class Reviewer:
     def review_plan(self, run: PlanRun) -> ReviewReport:
         reviewer_input = ReviewerInputContract(run=run)
         tools, paths = self._audit_summary(run)
-        risks = _risk_notes(run)
-        suggested_tests = _suggest_tests(run, paths)
-        summary = _summary(run, paths)
+        git_diff = _git_diff_summary(self.workspace_root)
+        risks = _risk_notes(run, git_diff)
+        suggested_tests = _suggest_tests(run, paths, git_diff)
+        summary = _summary(run, paths, git_diff)
         gate = _gate_decision(reviewer_input)
         handoff_recommendation = _handoff_recommendation(reviewer_input, gate)
         retry_proposal = _retry_proposal(run)
@@ -133,6 +168,7 @@ class Reviewer:
             suggested_tests=suggested_tests,
             gate=gate,
             retry_proposal=retry_proposal,
+            git_diff=git_diff,
         )
         report = ReviewReport(
             summary=summary,
@@ -142,6 +178,7 @@ class Reviewer:
             paths=paths,
             gate=gate,
             handoff_recommendation=handoff_recommendation,
+            git_diff=git_diff,
             retry_proposal=retry_proposal,
             model_suggestion=model_suggestion,
         )
@@ -193,6 +230,7 @@ class Reviewer:
         suggested_tests: list[str],
         gate: ReviewerGateDecision,
         retry_proposal: RetryProposal | None,
+        git_diff: GitDiffSummary,
     ) -> ModelReviewSuggestion | None:
         if self.llm is None:
             return None
@@ -204,6 +242,7 @@ class Reviewer:
             suggested_tests=suggested_tests,
             gate=gate,
             retry_proposal=retry_proposal,
+            git_diff=git_diff,
         )
         response = self.llm.chat(
             [Message.system(self.model_system_prompt), Message.user(prompt)],
@@ -212,8 +251,11 @@ class Reviewer:
         return _parse_model_suggestion(response.content or "")
 
 
-def _summary(run: PlanRun, paths: list[str]) -> str:
+def _summary(run: PlanRun, paths: list[str], git_diff: GitDiffSummary) -> str:
     status = str(run.status)
+    if git_diff.has_diff:
+        changed = ", ".join(file.path for file in git_diff.changed_files[:5])
+        return f"Plan finished with status {status}; git diff changed: {changed}."
     if paths:
         return f"Plan finished with status {status}; observed workspace paths: {', '.join(paths[:5])}."
     return f"Plan finished with status {status}; no file paths were observed in audit logs."
@@ -227,6 +269,7 @@ def _model_review_prompt(
     suggested_tests: list[str],
     gate: ReviewerGateDecision,
     retry_proposal: RetryProposal | None,
+    git_diff: GitDiffSummary,
 ) -> str:
     steps = [
         {
@@ -257,6 +300,19 @@ def _model_review_prompt(
             }
             if retry_proposal is not None
             else None,
+            "git_diff": {
+                "available": git_diff.available,
+                "has_diff": git_diff.has_diff,
+                "message": git_diff.message,
+                "changed_files": [
+                    {
+                        "path": file.path,
+                        "added_lines": file.added_lines,
+                        "removed_lines": file.removed_lines,
+                    }
+                    for file in git_diff.changed_files
+                ],
+            },
         },
         "steps": steps,
         "constraints": [
@@ -310,7 +366,122 @@ def _string_list(value: Any) -> list[str]:
     return [str(item) for item in value if str(item).strip()]
 
 
-def _risk_notes(run: PlanRun) -> list[str]:
+def _git_diff_summary(workspace_root: Path) -> GitDiffSummary:
+    inside = _run_git(workspace_root, "rev-parse", "--is-inside-work-tree")
+    if inside.returncode != 0 or inside.stdout.strip() != "true":
+        return GitDiffSummary(
+            available=False,
+            has_diff=False,
+            message="workspace is not a git repository",
+            changed_files=[],
+            hunks=[],
+        )
+
+    numstat = _run_git(workspace_root, "diff", "HEAD", "--numstat", "--")
+    diff_text = _run_git(workspace_root, "diff", "HEAD", "--unified=1", "--no-ext-diff", "--")
+    if numstat.returncode != 0 or diff_text.returncode != 0:
+        numstat = _run_git(workspace_root, "diff", "--numstat", "--")
+        diff_text = _run_git(workspace_root, "diff", "--unified=1", "--no-ext-diff", "--")
+
+    changed_files = _parse_numstat(numstat.stdout if numstat.returncode == 0 else "")
+    hunks = _extract_hunks(diff_text.stdout if diff_text.returncode == 0 else "")
+    untracked_files = _untracked_files(workspace_root)
+    known_paths = {file.path for file in changed_files}
+    for path in untracked_files:
+        if path not in known_paths:
+            changed_files.append(GitChangedFile(path=path, added_lines=0, removed_lines=0))
+            hunks.append(f"{path}: untracked file")
+    if not changed_files and not hunks:
+        return GitDiffSummary(
+            available=True,
+            has_diff=False,
+            message="no uncommitted git diff found",
+            changed_files=[],
+            hunks=[],
+        )
+    return GitDiffSummary(
+        available=True,
+        has_diff=True,
+        message=f"{len(changed_files)} changed file(s) in git diff",
+        changed_files=changed_files,
+        hunks=hunks,
+    )
+
+
+def _run_git(workspace_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(workspace_root), *args],
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return subprocess.CompletedProcess(
+            args=["git", "-C", str(workspace_root), *args],
+            returncode=1,
+            stdout="",
+            stderr=str(exc),
+        )
+
+
+def _parse_numstat(output: str) -> list[GitChangedFile]:
+    changed: list[GitChangedFile] = []
+    for line in output.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        added = _parse_git_line_count(parts[0])
+        removed = _parse_git_line_count(parts[1])
+        path = parts[2]
+        if path:
+            changed.append(GitChangedFile(path=path, added_lines=added, removed_lines=removed))
+    return changed
+
+
+def _parse_git_line_count(value: str) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        return 0
+
+
+def _extract_hunks(diff_text: str, *, max_hunks: int = 8, max_chars: int = 280) -> list[str]:
+    hunks: list[str] = []
+    current_file = ""
+    for line in diff_text.splitlines():
+        if line.startswith("+++ b/"):
+            current_file = line.removeprefix("+++ b/")
+            continue
+        if not line.startswith("@@"):
+            continue
+        hunk = line
+        if current_file:
+            hunk = f"{current_file}: {line}"
+        if len(hunk) > max_chars:
+            hunk = hunk[: max_chars - 3] + "..."
+        hunks.append(hunk)
+        if len(hunks) >= max_hunks:
+            break
+    return hunks
+
+
+def _untracked_files(workspace_root: Path) -> list[str]:
+    status = _run_git(workspace_root, "status", "--porcelain", "--untracked-files=normal")
+    if status.returncode != 0:
+        return []
+    paths: list[str] = []
+    for line in status.stdout.splitlines():
+        if not line.startswith("?? "):
+            continue
+        path = line[3:].strip()
+        if path and not path.startswith(".pyagent/"):
+            paths.append(path)
+    return paths
+
+
+def _risk_notes(run: PlanRun, git_diff: GitDiffSummary) -> list[str]:
     notes: list[str] = []
     risks = {str(step.risk).upper() for step in run.plan.steps}
     statuses = {step.status for step in run.plan.steps}
@@ -326,12 +497,22 @@ def _risk_notes(run: PlanRun) -> list[str]:
         notes.append("At least one step failed; do not treat the plan as fully complete.")
     if "skipped" in statuses:
         notes.append("At least one step was skipped; confirm the skipped work was optional.")
+    if git_diff.has_diff:
+        changed_paths = [file.path.lower() for file in git_diff.changed_files]
+        notes.append("Git diff present: review changed files before accepting the plan.")
+        if any(path.endswith(".py") for path in changed_paths):
+            notes.append("Python files changed in git diff: run focused pytest coverage.")
+        if any(path.endswith((".md", ".rst")) for path in changed_paths):
+            notes.append("Documentation changed in git diff: check rendered wording and examples.")
+    elif git_diff.available:
+        notes.append("No uncommitted git diff found for Reviewer to inspect.")
     return notes
 
 
-def _suggest_tests(run: PlanRun, paths: list[str]) -> list[str]:
+def _suggest_tests(run: PlanRun, paths: list[str], git_diff: GitDiffSummary) -> list[str]:
     suggestions: list[str] = []
     lower_paths = [path.lower() for path in paths]
+    lower_paths.extend(file.path.lower() for file in git_diff.changed_files)
     risks = {str(step.risk).upper() for step in run.plan.steps}
     tools = {tool for step in run.plan.steps for tool in step.suggested_tools}
 

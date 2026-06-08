@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.11：Git Diff-Aware Reviewer
+- Phase 4.12：Richer Browser Assertions
 
 ## Roadmap 总览
 
@@ -638,30 +638,41 @@ User Goal
 
 名称：
 
-- Git Diff-Aware Reviewer
+- Richer Browser Assertions
 
 目标：
 
-- 当 workspace 是 git 仓库时，Reviewer 自动读取本次工作区 diff 摘要，并把“改了什么、潜在风险、建议测试”写入 review artifact。
+- 为本地页面增加可审计的浏览器断言工具，支持检查 expected text、selector 是否存在、网络状态是否符合预期。
 
 第一小步：
 
-- 设计 git diff 摘要结构：changed files、added/removed lines、关键 hunks。
+- 设计 browser assertion 输入：url、selector、expected_text、expected_status。
 
 第二小步：
 
-- 在 Reviewer artifact 中加入 diff-aware risk notes，不改变现有 gate 判定语义。
+- 保持 local-only URL 边界，不允许外部站点断言。
 
 第三小步：
 
-- 为有 git repo / 非 git repo / 无 diff 三种情况补测试。
+- 补 Playwright 可选测试和未安装依赖的降级测试。
 
 完成标准：
 
-- 非 git workspace 不报错。
-- 无 diff 时给出清晰提示。
-- 有 diff 时 Reviewer artifact 包含变更文件和风险提示。
+- 本地页面可断言文本和 selector。
+- 外部 URL 被拒绝。
+- 未安装 Playwright 时清晰降级。
 - 全量测试通过。
+
+## 最近完成：Git Diff-Aware Reviewer
+
+完成内容：
+
+- Reviewer 新增 git diff 摘要：changed files、added/removed lines、bounded hunk headers。
+- 非 git workspace 不报错，并在 review artifact 中说明 workspace 不是 git 仓库。
+- git 仓库无 diff 时给出 `no uncommitted git diff found`。
+- 有 diff 时 ReviewReport summary、risk notes、suggested tests 和 Markdown artifact 都会反映变更文件。
+- 可选 model-backed Reviewer prompt 也接收 bounded git diff metadata，但不能覆盖 deterministic gate。
+- 补充 git repo / 非 git repo / 无 diff 三类测试，并同步 `docs/reviewer.md`、`docs/roadmap.md`。
 
 ## 最近完成：Per-Model Trace Comparison
 
