@@ -390,7 +390,7 @@ pyagent --check-browser
 
 跑通后不要马上乱翻所有源码。下一步应该进入核心实战篇：
 
-1. ReAct 和 Tool Calling
+1. [ReAct 和 Tool Calling](02_react_tool_calling.md)
 2. Plan-and-Execute / DAG
 3. Memory 系统
 4. RAG 代码检索

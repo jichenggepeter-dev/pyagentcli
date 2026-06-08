@@ -75,7 +75,7 @@
 
 推荐顺序：
 
-1. ReAct 和 Tool Calling
+1. [ReAct 和 Tool Calling](02_react_tool_calling.md)
 2. Tool Registry 和本地工具执行
 3. Safety Policy、HITL、Audit Log
 4. Plan-and-Execute
@@ -143,7 +143,7 @@ PyAgentCLI 里怎么实现
 
 ### 实战篇
 
-- 02 ReAct 和 Tool Calling
+- [02 ReAct 和 Tool Calling](02_react_tool_calling.md)
 - 03 Plan-and-Execute / DAG
 - 04 Memory 系统
 - 05 RAG 代码检索
@@ -278,7 +278,7 @@ v2 文档要把开发过程中的真实问题穿插进对应模块，而不是�
 接下来先重写：
 
 1. [01 先跑通 PyAgentCLI](01_run_project.md)
-2. ReAct 和 Tool Calling
+2. [ReAct 和 Tool Calling](02_react_tool_calling.md)
 3. Plan-and-Execute / DAG
 4. Memory 系统
 5. RAG 代码检索
