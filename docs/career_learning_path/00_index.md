@@ -147,7 +147,7 @@ PyAgentCLI 里怎么实现
 - [03 Plan-and-Execute / DAG](03_plan_execute_dag.md)
 - [04 Memory 系统](04_memory_system.md)
 - [05 RAG 代码检索](05_rag_code_retrieval.md)
-- 06 Tool Call、HITL 和安全策略
+- [06 Tool Call、HITL 和安全策略](06_tool_hitl_safety.md)
 - 07 Multi-Agent
 - 08 Browser Tools 和联网搜索
 - 09 接入 MCP
@@ -282,6 +282,6 @@ v2 文档要把开发过程中的真实问题穿插进对应模块，而不是�
 3. [Plan-and-Execute / DAG](03_plan_execute_dag.md)
 4. [Memory 系统](04_memory_system.md)
 5. [RAG 代码检索](05_rag_code_retrieval.md)
-6. Tool Call、HITL 和安全策略
+6. [Tool Call、HITL 和安全策略](06_tool_hitl_safety.md)
 
 等核心实战篇成型后，再重写简历篇和七弹面试篇。

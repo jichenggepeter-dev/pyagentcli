@@ -978,6 +978,6 @@ PyAgentCLI 用 `(path, start_line, end_line, symbol_name)` 去重。
 
 下一篇进入：
 
-> Tool Call、HITL 和安全策略
+> [Tool Call、HITL 和安全策略](06_tool_hitl_safety.md)
 
 RAG 解决的是“Agent 看什么上下文”；Tool/HITL/Safety 解决的是“Agent 能不能真的执行、执行前要不要审批、哪些动作必须被拦住”。
