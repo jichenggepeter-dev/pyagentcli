@@ -850,6 +850,6 @@ network/critical defaults deny
 
 下一篇进入：
 
-> Multi-Agent
+> [Multi-Agent](07_multi_agent.md)
 
 Tool/HITL/Safety 解决的是单个工具调用如何安全落地；Multi-Agent 解决的是复杂任务里 Planner、Executor、Reviewer 如何分工和交接。

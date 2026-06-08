@@ -148,7 +148,7 @@ PyAgentCLI 里怎么实现
 - [04 Memory 系统](04_memory_system.md)
 - [05 RAG 代码检索](05_rag_code_retrieval.md)
 - [06 Tool Call、HITL 和安全策略](06_tool_hitl_safety.md)
-- 07 Multi-Agent
+- [07 Multi-Agent](07_multi_agent.md)
 - 08 Browser Tools 和联网搜索
 - 09 接入 MCP
 - 10 Prompt 分层和 Skill System
