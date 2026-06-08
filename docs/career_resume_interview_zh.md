@@ -31,6 +31,7 @@
 - [21 面试题第六弹：CLI 产品化、Git、Runtime API](career_learning_path/21_interview_cli_git_runtime.md)
 - [22 面试题第七弹：多模型适配、运行时切换、成本控制](career_learning_path/22_interview_multi_model_cost.md)
 - [23 开发复盘：我们真实遇到的问题](career_learning_path/23_development_pitfalls_review.md)
+- [24 一分钟项目介绍和高频追问](career_learning_path/24_pitch_and_followups_v2.md)
 - [旧版项目定位](career_learning_path/01_project_positioning.md)
 - [旧版先把项目跑起来](career_learning_path/02_run_project.md)
 - [03 简历篇：AI Agent 岗位写法](career_learning_path/03_resume_ai_agent.md)
