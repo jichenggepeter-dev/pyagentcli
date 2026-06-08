@@ -61,6 +61,16 @@ class RetrieverComparisonCase:
 
 
 @dataclass(frozen=True)
+class BrowserAssertionCase:
+    case_id: str
+    name: str
+    initial_files: dict[str, str]
+    args: dict[str, Any]
+    expected_pass: bool
+    expected_message_contains: str | None = None
+
+
+@dataclass(frozen=True)
 class TraceEvalCase:
     case_id: str
     name: str
@@ -203,6 +213,36 @@ BUILTIN_RETRIEVER_COMPARISON_CASES = [
         query="project_status",
         expected_path="src/app.py",
     )
+]
+
+
+BUILTIN_BROWSER_ASSERTION_CASES = [
+    BrowserAssertionCase(
+        case_id="browser_assertion.local_static_pass",
+        name="Local static browser assertion passes",
+        initial_files={
+            "site/index.html": (
+                "<html><head><title>Browser Assertion</title></head>"
+                "<body><main id='app'><p class='status'>Ready</p></main></body></html>"
+            )
+        },
+        args={
+            "url": "site/index.html",
+            "expected_text": "Ready",
+            "selector": ".status",
+            "expected_status": 200,
+        },
+        expected_pass=True,
+        expected_message_contains="Assertion: pass",
+    ),
+    BrowserAssertionCase(
+        case_id="browser_assertion.external_url_denied",
+        name="External browser assertion is denied",
+        initial_files={},
+        args={"url": "https://example.com", "expected_text": "Example"},
+        expected_pass=False,
+        expected_message_contains="Only local browser URLs are allowed",
+    ),
 ]
 
 

@@ -12,6 +12,7 @@ from typing import Callable
 from pyagentcli.context_injection import inject_context_references
 from pyagentcli.evals.cases import (
     BUILTIN_AGENT_TRACE_CASES,
+    BUILTIN_BROWSER_ASSERTION_CASES,
     BUILTIN_CASES,
     BUILTIN_CODING_TASKS,
     BUILTIN_RAG_RETRIEVAL_CASES,
@@ -20,6 +21,7 @@ from pyagentcli.evals.cases import (
     BUILTIN_REVIEWER_PROPOSAL_COMPARISON_CASES,
     BUILTIN_REVIEWER_EVAL_CASES,
     BUILTIN_TRACE_EVAL_CASES,
+    BrowserAssertionCase,
     CodingTaskCase,
     EvalCase,
     RagRetrievalCase,
@@ -30,6 +32,7 @@ from pyagentcli.evals.cases import (
     workspace_for_case,
 )
 from pyagentcli.evals.metrics import (
+    BrowserAssertionSummary,
     CodingTaskSummary,
     EvalSummary,
     ModelTraceComparisonSummary,
@@ -107,6 +110,19 @@ class RetrieverComparisonResult:
     rank: int | None
     score: float | None
     disabled_reason: str | None
+    duration_ms: int
+
+
+@dataclass(frozen=True)
+class BrowserAssertionResult:
+    case_id: str
+    name: str
+    passed: bool
+    message: str
+    expected_pass: bool
+    actual_ok: bool
+    expected_denial: bool
+    url: str
     duration_ms: int
 
 
@@ -205,6 +221,8 @@ class EvalRunner:
         list[RagRetrievalResult],
         RetrieverComparisonSummary,
         list[RetrieverComparisonResult],
+        BrowserAssertionSummary,
+        list[BrowserAssertionResult],
         TraceEvalSummary,
         list[TraceEvalResult],
         ReviewerEvalSummary,
@@ -225,6 +243,10 @@ class EvalRunner:
                 result
                 for case in BUILTIN_RETRIEVER_COMPARISON_CASES
                 for result in self._run_retriever_comparison(case, eval_root)
+            ]
+            browser_assertion_results = [
+                self._run_browser_assertion(case, eval_root)
+                for case in BUILTIN_BROWSER_ASSERTION_CASES
             ]
             trace_results = [self._run_trace_eval(case) for case in BUILTIN_TRACE_EVAL_CASES]
             trace_results.extend(self._run_agent_trace_case(case, eval_root) for case in BUILTIN_AGENT_TRACE_CASES)
@@ -286,6 +308,12 @@ class EvalRunner:
             passed=sum(1 for result in retriever_comparison_results if result.enabled and result.passed),
             failed=sum(1 for result in retriever_comparison_results if result.enabled and not result.passed),
         )
+        browser_assertion_summary = BrowserAssertionSummary(
+            total=len(browser_assertion_results),
+            passed=sum(1 for result in browser_assertion_results if result.passed),
+            failed=sum(1 for result in browser_assertion_results if not result.passed),
+            expected_denials=sum(1 for result in browser_assertion_results if result.expected_denial),
+        )
         trace_summary = TraceEvalSummary(
             total=len(trace_results),
             passed=sum(1 for result in trace_results if result.passed),
@@ -346,6 +374,7 @@ class EvalRunner:
             coding_results,
             rag_results,
             retriever_comparison_results,
+            browser_assertion_results,
             trace_results,
             reviewer_results,
             real_model_trace_results,
@@ -362,6 +391,8 @@ class EvalRunner:
             rag_results,
             retriever_comparison_summary,
             retriever_comparison_results,
+            browser_assertion_summary,
+            browser_assertion_results,
             trace_summary,
             trace_results,
             reviewer_summary,
@@ -585,6 +616,49 @@ class EvalRunner:
             )
         return results
 
+    def _run_browser_assertion(self, case: BrowserAssertionCase, eval_root: Path) -> BrowserAssertionResult:
+        started = perf_counter()
+        workspace = workspace_for_case(eval_root, EvalCase(case.case_id, case.name, str(case.args.get("url") or "")))
+        workspace.mkdir(parents=True, exist_ok=True)
+        for relative_path, content in case.initial_files.items():
+            target = workspace / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+        registry = default_registry()
+        context = ToolContext(
+            workspace_root=workspace,
+            safety_policy=SafetyPolicy(workspace),
+            approval_handler=ApproveAll(),
+            audit_logger=AuditLogger(workspace),
+            goal=case.name,
+            step=1,
+        )
+        result = registry.execute("browser_assert", dict(case.args), context)
+        observation = result.content if result.ok else (result.error or "")
+        expected_message_ok = (
+            case.expected_message_contains is None
+            or case.expected_message_contains in observation
+        )
+        passed = result.ok == case.expected_pass and expected_message_ok
+        failures: list[str] = []
+        if result.ok != case.expected_pass:
+            failures.append(f"actual_ok={result.ok}, expected {case.expected_pass}")
+        if not expected_message_ok:
+            failures.append(f"missing expected message: {case.expected_message_contains!r}")
+
+        return BrowserAssertionResult(
+            case_id=case.case_id,
+            name=case.name,
+            passed=passed,
+            message="passed" if passed else "; ".join(failures),
+            expected_pass=case.expected_pass,
+            actual_ok=result.ok,
+            expected_denial=not case.expected_pass,
+            url=str(case.args.get("url") or ""),
+            duration_ms=int((perf_counter() - started) * 1000),
+        )
+
     def _run_trace_eval(self, case: TraceEvalCase) -> TraceEvalResult:
         started = perf_counter()
         result = _score_trace(
@@ -770,6 +844,7 @@ class EvalRunner:
         coding_results: list[CodingTaskResult],
         rag_results: list[RagRetrievalResult],
         retriever_comparison_results: list[RetrieverComparisonResult],
+        browser_assertion_results: list[BrowserAssertionResult],
         trace_results: list[TraceEvalResult],
         reviewer_results: list[ReviewerEvalResult],
         real_model_trace_results: list[TraceEvalResult],
@@ -790,6 +865,9 @@ class EvalRunner:
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in retriever_comparison_results:
                 payload = {"kind": "retriever_comparison", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            for result in browser_assertion_results:
+                payload = {"kind": "browser_assertion", **asdict(result)}
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in trace_results:
                 payload = {"kind": "trace_eval", **asdict(result)}

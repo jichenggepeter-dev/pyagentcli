@@ -102,6 +102,29 @@ class RetrieverComparisonSummary:
 
 
 @dataclass(frozen=True)
+class BrowserAssertionSummary:
+    total: int
+    passed: int
+    failed: int
+    expected_denials: int
+
+    @property
+    def pass_rate(self) -> float:
+        if self.total == 0:
+            return 0.0
+        return self.passed / self.total
+
+    def format_text(self) -> str:
+        return (
+            "Browser assertion eval: "
+            f"{self.passed}/{self.total} passed "
+            f"({self.pass_rate:.0%}); "
+            f"{self.failed} failed; "
+            f"expected denials {self.expected_denials}."
+        )
+
+
+@dataclass(frozen=True)
 class TraceEvalSummary:
     total: int
     passed: int

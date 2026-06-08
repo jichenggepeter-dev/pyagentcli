@@ -29,6 +29,8 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
         rag_results,
         retriever_comparison_summary,
         retriever_comparison_results,
+        browser_assertion_summary,
+        browser_assertion_results,
         trace_summary,
         trace_results,
         reviewer_summary,
@@ -73,6 +75,14 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
         for result in retriever_comparison_results
         if not result.enabled
     )
+    assert browser_assertion_summary.total == 2
+    assert browser_assertion_summary.failed == 0
+    assert browser_assertion_summary.expected_denials == 1
+    assert all(result.passed for result in browser_assertion_results)
+    assert {result.case_id for result in browser_assertion_results} == {
+        "browser_assertion.local_static_pass",
+        "browser_assertion.external_url_denied",
+    }
     assert trace_summary.total == 2
     assert trace_summary.failed == 0
     assert trace_summary.tool_call_accuracy == 1.0
@@ -116,6 +126,8 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert '"kind": "retriever_comparison"' in report_text
     assert '"retriever_name": "hybrid-hash"' in report_text
     assert '"retriever_name": "vector-disabled"' in report_text
+    assert '"kind": "browser_assertion"' in report_text
+    assert "browser_assertion.external_url_denied" in report_text
     assert '"kind": "trace_eval"' in report_text
     assert '"kind": "reviewer_eval"' in report_text
     assert '"kind": "reviewer_proposal_comparison"' in report_text

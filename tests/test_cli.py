@@ -486,6 +486,9 @@ def test_run_evals_outputs_summary(tmp_path) -> None:
     assert "Retriever comparison eval:" in result
     assert "3/3 enabled comparisons passed" in result
     assert "DISABLED vector-disabled retriever_compare.project_status" in result
+    assert "Browser assertion eval:" in result
+    assert "browser_assertion.local_static_pass" in result
+    assert "browser_assertion.external_url_denied" in result
     assert "Trace eval:" in result
     assert "trace.update_readme_status" in result
     assert "Reviewer eval:" in result

@@ -163,6 +163,7 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - request/response bodies and headers are not recorded
 - read-only `browser_assert` for expected text, selector presence, and page status
 - browser assertions keep local-only URL boundaries and use static fallback when Playwright is unavailable
+- browser assertion evals for local static assertions and external URL denial
 
 ### Multi-Agent v0.3
 
@@ -193,11 +194,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Browser Assertion Evals**
-   Add eval cases that validate browser assertions on fixed local HTML fixtures.
-
-2. **Imported-By Dependency Context**
+1. **Imported-By Dependency Context**
    Add reverse dependency context to RAG retrieval and context injection.
 
-3. **Reviewer Risk Scoring Evals**
+2. **Reviewer Risk Scoring Evals**
    Add eval fixtures that score docs, tools, safety, and deletion-heavy diffs.
+
+3. **Dynamic Browser Assertion Evals**
+   Add optional Playwright-backed eval cases for JavaScript-updated DOM assertions.

@@ -405,6 +405,8 @@ def run_evals(
         rag_results,
         retriever_comparison_summary,
         retriever_comparison_results,
+        browser_assertion_summary,
+        browser_assertion_results,
         trace_summary,
         trace_results,
         reviewer_summary,
@@ -429,6 +431,7 @@ def run_evals(
         coding_summary.format_text(),
         rag_summary.format_text(),
         retriever_comparison_summary.format_text(),
+        browser_assertion_summary.format_text(),
         trace_summary.format_text(),
         reviewer_summary.format_text(),
         real_model_trace_summary.format_text(),
@@ -468,6 +471,14 @@ def run_evals(
                 f"DISABLED {result.retriever_name} {result.case_id}: "
                 f"{result.disabled_reason or 'disabled'}"
             )
+    for result in browser_assertion_results:
+        status = "PASS" if result.passed else "FAIL"
+        lines.append(
+            f"{status} {result.case_id}: {result.name} "
+            f"(actual_ok={result.actual_ok}; expected_pass={result.expected_pass})"
+        )
+        if not result.passed:
+            lines.append(f"  {result.message}")
     for result in trace_results:
         status = "PASS" if result.passed else "FAIL"
         lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")

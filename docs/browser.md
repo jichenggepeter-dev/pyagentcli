@@ -130,6 +130,15 @@ Optional success-path verification:
 
 Those tests are skipped when the Playwright Python package is missing. If the package is installed but Chromium has not been installed yet, they also skip with a browser-binary message.
 
+## Eval Coverage
+
+`pyagent --eval` includes browser assertion evals that run without Playwright:
+
+- local static HTML expected text, selector, and status assertions
+- external URL denial
+
+The report writes these as `browser_assertion` JSONL rows.
+
 ## Non-Goals
 
 Browser v0.5 does not yet include:

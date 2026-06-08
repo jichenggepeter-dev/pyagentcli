@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.15：Browser Assertion Evals
+- Phase 4.16：Imported-By Dependency Context
 
 ## Roadmap 总览
 
@@ -638,30 +638,42 @@ User Goal
 
 名称：
 
-- Browser Assertion Evals
+- Imported-By Dependency Context
 
 目标：
 
-- 增加固定本地 HTML fixture，验证 `browser_assert` 是否能正确判断文本、selector、status 和越权 URL。
+- 在 RAG dependency context 中加入 imported-by 反向依赖，让 Agent 能知道“谁依赖当前文件/模块”。
 
 第一小步：
 
-- 设计 browser assertion eval case：url、expected_text、selector、expected_status、expected_pass。
+- 设计 imported-by 查询输出：target module、importing file、line、imported name。
 
 第二小步：
 
-- 将 browser assertion 结果写入 JSONL report，不依赖外部网站。
+- 将 reverse dependency context 接入 `@file` / context injection。
 
 第三小步：
 
-- 覆盖静态 HTML fallback 和外部 URL denial。
+- 补 RAG indexer / retriever / context injection 测试。
 
 完成标准：
 
-- 默认 eval 不需要 Playwright。
-- 本地 fixture 文本、selector、status 断言可稳定通过。
-- 外部 URL 断言稳定失败且原因清晰。
+- `search_dependencies` 支持 imported-by 场景。
+- `@src/helpers.py` 能注入谁 import 了 helpers。
 - 全量测试通过。
+
+## 最近完成：Browser Assertion Evals
+
+完成内容：
+
+- 新增 browser assertion eval case，调用真实 `browser_assert` 工具路径。
+- 覆盖本地静态 HTML expected_text、selector、expected_status 通过场景。
+- 覆盖外部 URL denial，expected failure 被计为 eval pass。
+- 新增 Browser assertion summary：passed、failed、expected denials。
+- JSONL report 新增 `browser_assertion` 类型。
+- CLI `--eval` 输出 Browser assertion summary 和每条 case 明细。
+- 默认 eval 不依赖 Playwright，也不访问外部网站。
+- 补充 eval / CLI 测试，并同步 `docs/evals.md`、`docs/browser.md`、`docs/roadmap.md`。
 
 ## 最近完成：Richer Changed-File Risk Scoring
 

@@ -68,6 +68,21 @@ The reported metrics are:
 - disabled comparison count
 - hit path, rank, and score per retriever
 
+## Browser Assertion Evals
+
+Browser assertion evals run the real `browser_assert` tool on fixed local fixtures:
+
+- local static HTML text, selector, and status assertions
+- external URL denial
+
+These evals do not require Playwright. They use the static local HTML fallback so default evals remain local and repeatable.
+
+The reported metrics are:
+
+- assertion pass rate
+- failed assertion count
+- expected denial count
+
 ## Captured Trace Evals
 
 Trace evals score an auditable Agent-like run trace:
@@ -190,7 +205,7 @@ PYTHONPATH=src python -m pyagentcli \
   --eval
 ```
 
-The CLI prints platform, coding-task, RAG, retriever comparison, trace, Reviewer, real-model trace, per-model trace comparison, and Reviewer proposal comparison summaries and writes a JSONL report:
+The CLI prints platform, coding-task, RAG, retriever comparison, browser assertion, trace, Reviewer, real-model trace, per-model trace comparison, and Reviewer proposal comparison summaries and writes a JSONL report:
 
 ```text
 .pyagent/evals/eval_YYYYMMDD_HHMMSS.jsonl
@@ -203,6 +218,7 @@ Report lines include a `kind` field:
 {"kind": "coding_task", "case_id": "coding.update_readme_status", "...": "..."}
 {"kind": "rag_retrieval", "case_id": "rag_retrieval.typescript_symbol", "...": "..."}
 {"kind": "retriever_comparison", "retriever_name": "hybrid-hash", "case_id": "retriever_compare.project_status", "...": "..."}
+{"kind": "browser_assertion", "case_id": "browser_assertion.local_static_pass", "...": "..."}
 {"kind": "trace_eval", "case_id": "trace.update_readme_status", "...": "..."}
 {"kind": "reviewer_eval", "case_id": "reviewer.failed_step", "...": "..."}
 {"kind": "real_model_trace_eval", "case_id": "real_model_trace.list_workspace", "...": "..."}
@@ -216,6 +232,6 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Add changed-file risk scoring to Reviewer.
-2. Add browser assertion evals.
-3. Add richer dependency context such as imported-by edges.
+1. Add imported-by dependency context.
+2. Add reviewer risk scoring evals.
+3. Add browser assertion cases for dynamic Playwright pages.
