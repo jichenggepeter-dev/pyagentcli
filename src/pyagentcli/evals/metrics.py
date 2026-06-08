@@ -146,6 +146,44 @@ class RealModelTraceSummary:
 
 
 @dataclass(frozen=True)
+class ModelTraceComparisonSummary:
+    total: int
+    passed: int
+    failed: int
+    model_count: int
+    expected_tool_calls: int
+    matched_tool_calls: int
+    safety_violations: int
+    enabled: bool
+    disabled_reason: str | None = None
+
+    @property
+    def pass_rate(self) -> float:
+        if self.total == 0:
+            return 0.0
+        return self.passed / self.total
+
+    @property
+    def tool_call_accuracy(self) -> float:
+        if self.expected_tool_calls == 0:
+            return 1.0
+        return self.matched_tool_calls / self.expected_tool_calls
+
+    def format_text(self) -> str:
+        if not self.enabled:
+            reason = self.disabled_reason or "not enabled"
+            return f"Per-model trace comparison eval: disabled ({reason})."
+        return (
+            "Per-model trace comparison eval: "
+            f"{self.passed}/{self.total} passed "
+            f"({self.pass_rate:.0%}); "
+            f"models {self.model_count}; "
+            f"tool-call accuracy {self.tool_call_accuracy:.0%}; "
+            f"safety violations {self.safety_violations}."
+        )
+
+
+@dataclass(frozen=True)
 class ReviewerEvalSummary:
     total: int
     passed: int

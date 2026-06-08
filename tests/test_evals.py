@@ -33,6 +33,8 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
         reviewer_results,
         real_model_trace_summary,
         real_model_trace_results,
+        model_trace_comparison_summary,
+        model_trace_comparison_results,
         reviewer_proposal_comparison_summary,
         reviewer_proposal_comparison_results,
     ) = EvalRunner(
@@ -70,6 +72,9 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert real_model_trace_summary.enabled is False
     assert real_model_trace_summary.total == 0
     assert real_model_trace_results == []
+    assert model_trace_comparison_summary.enabled is False
+    assert model_trace_comparison_summary.total == 0
+    assert model_trace_comparison_results == []
     assert reviewer_proposal_comparison_summary.total == 3
     assert reviewer_proposal_comparison_summary.failed == 0
     assert reviewer_proposal_comparison_summary.matched == 1
@@ -95,6 +100,7 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert '"kind": "reviewer_proposal_comparison"' in report_text
     assert "reviewer_proposal_compare.invalid_json" in report_text
     assert '"kind": "real_model_trace_eval"' not in report_text
+    assert '"kind": "model_trace_comparison"' not in report_text
 
 
 def test_eval_runner_runs_opt_in_real_model_trace_with_fake_llm(tmp_path: Path) -> None:
@@ -103,6 +109,8 @@ def test_eval_runner_runs_opt_in_real_model_trace_with_fake_llm(tmp_path: Path) 
         *_,
         real_model_trace_summary,
         real_model_trace_results,
+        model_trace_comparison_summary,
+        model_trace_comparison_results,
         reviewer_proposal_comparison_summary,
         reviewer_proposal_comparison_results,
     ) = EvalRunner(workspace_root=tmp_path).run_builtin(
@@ -118,6 +126,8 @@ def test_eval_runner_runs_opt_in_real_model_trace_with_fake_llm(tmp_path: Path) 
     assert len(real_model_trace_results) == 1
     assert real_model_trace_results[0].passed is True
     assert real_model_trace_results[0].used_tools == ["list_files"]
+    assert model_trace_comparison_summary.enabled is False
+    assert model_trace_comparison_results == []
     assert reviewer_proposal_comparison_summary.total == 3
     assert len(reviewer_proposal_comparison_results) == 3
     report_files = sorted((tmp_path / ".pyagent" / "evals").glob("eval_*.jsonl"))
@@ -125,3 +135,39 @@ def test_eval_runner_runs_opt_in_real_model_trace_with_fake_llm(tmp_path: Path) 
     report_text = report_files[-1].read_text(encoding="utf-8")
     assert '"kind": "real_model_trace_eval"' in report_text
     assert "real_model_trace.list_workspace" in report_text
+
+
+def test_eval_runner_runs_per_model_trace_comparison_with_fake_llms(tmp_path: Path) -> None:
+    fast_llm = FakeTraceLLM()
+    careful_llm = FakeTraceLLM()
+    (
+        *_,
+        model_trace_comparison_summary,
+        model_trace_comparison_results,
+        reviewer_proposal_comparison_summary,
+        reviewer_proposal_comparison_results,
+    ) = EvalRunner(workspace_root=tmp_path).run_builtin(
+        model_trace_comparison_llms={
+            "fast": fast_llm,
+            "careful": careful_llm,
+        },
+    )
+
+    assert fast_llm.calls == 2
+    assert careful_llm.calls == 2
+    assert model_trace_comparison_summary.enabled is True
+    assert model_trace_comparison_summary.total == 2
+    assert model_trace_comparison_summary.model_count == 2
+    assert model_trace_comparison_summary.failed == 0
+    assert model_trace_comparison_summary.tool_call_accuracy == 1.0
+    assert model_trace_comparison_summary.safety_violations == 0
+    assert {result.model_name for result in model_trace_comparison_results} == {"fast", "careful"}
+    assert all(result.passed for result in model_trace_comparison_results)
+    assert reviewer_proposal_comparison_summary.total == 3
+    assert len(reviewer_proposal_comparison_results) == 3
+    report_files = sorted((tmp_path / ".pyagent" / "evals").glob("eval_*.jsonl"))
+    assert report_files
+    report_text = report_files[-1].read_text(encoding="utf-8")
+    assert '"kind": "model_trace_comparison"' in report_text
+    assert '"model_name": "fast"' in report_text
+    assert '"model_name": "careful"' in report_text

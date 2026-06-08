@@ -30,6 +30,7 @@ from pyagentcli.evals.cases import (
 from pyagentcli.evals.metrics import (
     CodingTaskSummary,
     EvalSummary,
+    ModelTraceComparisonSummary,
     RagRetrievalSummary,
     RealModelTraceSummary,
     ReviewerProposalComparisonSummary,
@@ -101,6 +102,21 @@ class TraceEvalResult:
 
 
 @dataclass(frozen=True)
+class ModelTraceComparisonResult:
+    model_name: str
+    case_id: str
+    name: str
+    passed: bool
+    message: str
+    expected_tools: list[str]
+    used_tools: list[str]
+    matched_tool_calls: int
+    safety_violations: int
+    final_output: str
+    duration_ms: int
+
+
+@dataclass(frozen=True)
 class ReviewerEvalResult:
     case_id: str
     name: str
@@ -154,6 +170,8 @@ class EvalRunner:
         include_real_model_trace: bool = False,
         real_model_llm: LLMClient | None = None,
         real_model_disabled_reason: str | None = None,
+        model_trace_comparison_llms: dict[str, LLMClient] | None = None,
+        model_trace_comparison_disabled_reason: str | None = None,
     ) -> tuple[
         EvalSummary,
         list[EvalResult],
@@ -168,6 +186,8 @@ class EvalRunner:
         list[ReviewerEvalResult],
         RealModelTraceSummary,
         list[TraceEvalResult],
+        ModelTraceComparisonSummary,
+        list[ModelTraceComparisonResult],
         ReviewerProposalComparisonSummary,
         list[ReviewerProposalComparisonResult],
     ]:
@@ -189,6 +209,25 @@ class EvalRunner:
                     self._run_agent_trace_case(case, eval_root, llm=real_model_llm)
                     for case in BUILTIN_REAL_MODEL_TRACE_CASES
                 ]
+            model_trace_comparison_results: list[ModelTraceComparisonResult] = []
+            for model_name, llm in (model_trace_comparison_llms or {}).items():
+                for case in BUILTIN_REAL_MODEL_TRACE_CASES:
+                    trace_result = self._run_agent_trace_case(case, eval_root, llm=llm)
+                    model_trace_comparison_results.append(
+                        ModelTraceComparisonResult(
+                            model_name=model_name,
+                            case_id=trace_result.case_id,
+                            name=trace_result.name,
+                            passed=trace_result.passed,
+                            message=trace_result.message,
+                            expected_tools=trace_result.expected_tools,
+                            used_tools=trace_result.used_tools,
+                            matched_tool_calls=trace_result.matched_tool_calls,
+                            safety_violations=trace_result.safety_violations,
+                            final_output=trace_result.final_output,
+                            duration_ms=trace_result.duration_ms,
+                        )
+                    )
 
         summary = EvalSummary(
             total=len(results),
@@ -244,6 +283,20 @@ class EvalRunner:
             if include_real_model_trace and real_model_llm is not None
             else (real_model_disabled_reason or "enable with --eval-real-model"),
         )
+        model_trace_comparison_enabled = bool(model_trace_comparison_llms)
+        model_trace_comparison_summary = ModelTraceComparisonSummary(
+            total=len(model_trace_comparison_results),
+            passed=sum(1 for result in model_trace_comparison_results if result.passed),
+            failed=sum(1 for result in model_trace_comparison_results if not result.passed),
+            model_count=len(model_trace_comparison_llms or {}),
+            expected_tool_calls=sum(len(result.expected_tools) for result in model_trace_comparison_results),
+            matched_tool_calls=sum(result.matched_tool_calls for result in model_trace_comparison_results),
+            safety_violations=sum(result.safety_violations for result in model_trace_comparison_results),
+            enabled=model_trace_comparison_enabled,
+            disabled_reason=None
+            if model_trace_comparison_enabled
+            else (model_trace_comparison_disabled_reason or "enable with --eval-compare-models"),
+        )
         reviewer_proposal_comparison_summary = ReviewerProposalComparisonSummary(
             total=len(reviewer_proposal_comparison_results),
             passed=sum(1 for result in reviewer_proposal_comparison_results if result.passed),
@@ -258,6 +311,7 @@ class EvalRunner:
             trace_results,
             reviewer_results,
             real_model_trace_results,
+            model_trace_comparison_results,
             reviewer_proposal_comparison_results,
         )
         return (
@@ -274,6 +328,8 @@ class EvalRunner:
             reviewer_results,
             real_model_trace_summary,
             real_model_trace_results,
+            model_trace_comparison_summary,
+            model_trace_comparison_results,
             reviewer_proposal_comparison_summary,
             reviewer_proposal_comparison_results,
         )
@@ -604,6 +660,7 @@ class EvalRunner:
         trace_results: list[TraceEvalResult],
         reviewer_results: list[ReviewerEvalResult],
         real_model_trace_results: list[TraceEvalResult],
+        model_trace_comparison_results: list[ModelTraceComparisonResult],
         reviewer_proposal_comparison_results: list[ReviewerProposalComparisonResult],
     ) -> Path:
         self.report_dir.mkdir(parents=True, exist_ok=True)
@@ -626,6 +683,9 @@ class EvalRunner:
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in real_model_trace_results:
                 payload = {"kind": "real_model_trace_eval", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            for result in model_trace_comparison_results:
+                payload = {"kind": "model_trace_comparison", **asdict(result)}
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in reviewer_proposal_comparison_results:
                 payload = {"kind": "reviewer_proposal_comparison", **asdict(result)}

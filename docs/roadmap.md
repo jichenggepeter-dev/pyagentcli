@@ -119,6 +119,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - Reviewer output scoring for gate decisions, retry proposals, and suggested tests
 - opt-in real model trace capture behind `--eval-real-model`
 - real model trace reports written as `real_model_trace_eval`
+- opt-in per-model trace comparison behind `--eval-compare-models`
+- per-model comparison reports written as `model_trace_comparison`
 - Reviewer proposal comparison evals for deterministic and model-backed actions
 - model suggestion mismatches and invalid JSON downgrade paths are scored
 
@@ -190,11 +192,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Per-Model Trace Comparison**
-   Compare real model trace results across model configs without changing default local evals.
-
-2. **Git Diff-Aware Reviewer**
+1. **Git Diff-Aware Reviewer**
    Include git diff summaries in Reviewer artifacts when the workspace is a git repository.
 
-3. **Richer Browser Assertions**
+2. **Richer Browser Assertions**
    Add local-only assertions for expected text, selector state, and network status.
+
+3. **Per-Retriever Comparison Reports**
+   Compare exact, vector, and hybrid retrieval quality on fixed retrieval fixtures.

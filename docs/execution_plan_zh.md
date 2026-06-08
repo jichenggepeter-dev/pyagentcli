@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.10：Per-Model Trace Comparison
+- Phase 4.11：Git Diff-Aware Reviewer
 
 ## Roadmap 总览
 
@@ -638,31 +638,41 @@ User Goal
 
 名称：
 
-- Per-Model Trace Comparison
+- Git Diff-Aware Reviewer
 
 目标：
 
-- 在不改变默认本地 eval 的前提下，对多个模型配置的 real model trace 结果做对比报告。
+- 当 workspace 是 git 仓库时，Reviewer 自动读取本次工作区 diff 摘要，并把“改了什么、潜在风险、建议测试”写入 review artifact。
 
 第一小步：
 
-- 设计 model comparison 输入：model name、base_url、case_id、trace score。
+- 设计 git diff 摘要结构：changed files、added/removed lines、关键 hunks。
 
 第二小步：
 
-- 增加 opt-in 的 per-model trace runner，不默认调用外部 API。
+- 在 Reviewer artifact 中加入 diff-aware risk notes，不改变现有 gate 判定语义。
 
 第三小步：
 
-- 输出每个模型的 tool-call accuracy、safety violations、final output pass/fail。
+- 为有 git repo / 非 git repo / 无 diff 三种情况补测试。
 
 完成标准：
 
-- 默认 eval 不调用外部模型。
-- 显式配置后才比较多个模型。
-- 每个模型结果写入 JSONL report。
-- 无 API key 或配置缺失时清晰提示。
+- 非 git workspace 不报错。
+- 无 diff 时给出清晰提示。
+- 有 diff 时 Reviewer artifact 包含变更文件和风险提示。
 - 全量测试通过。
+
+## 最近完成：Per-Model Trace Comparison
+
+完成内容：
+
+- 新增 `--eval-compare-models` 显式开关，默认 `pyagent --eval` 不调用外部模型。
+- 支持在 `pyagent.toml` 的 `[evals.model_comparison.models.*]` 中配置 model、base_url、api_key_env。
+- 缺少模型配置或 API key 时输出 disabled summary，不回退到本地模型假装比较。
+- Eval runner 支持多个模型 client 的 trace comparison，并输出 model count、tool-call accuracy、safety violations。
+- JSONL report 新增 `model_trace_comparison` 类型。
+- 补充 config、runner、CLI 测试，并同步 `docs/evals.md`、`docs/roadmap.md`。
 
 ## 最近完成：Browser Network Logs
 

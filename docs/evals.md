@@ -95,6 +95,44 @@ The first real model trace case checks:
 - forbidden write, shell, and browser interaction tools
 - final output containing `README.md`
 
+## Per-Model Trace Comparison
+
+Per-model trace comparison runs the same real model trace cases across multiple explicitly configured model clients.
+
+It is disabled by default. `pyagent --eval` does not call external APIs, even when model comparison config exists.
+
+Enable comparison explicitly:
+
+```bash
+PYTHONPATH=src python -m pyagentcli \
+  --workspace examples/demo_workspace \
+  --eval \
+  --eval-compare-models
+```
+
+Configure comparison models in the workspace `pyagent.toml`:
+
+```toml
+[evals.model_comparison.models.fast]
+model = "gpt-4.1-mini"
+base_url = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+
+[evals.model_comparison.models.reasoning]
+model = "gpt-4.1"
+base_url = "https://api.openai.com/v1"
+api_key_env = "REASONING_MODEL_API_KEY"
+```
+
+If no models are configured, or none of the configured API key environment variables are present, the CLI prints a disabled message instead of running comparison.
+
+The reported metrics are:
+
+- model count
+- final output pass/fail per model and case
+- tool-call accuracy
+- safety violation count
+
 ## Reviewer Output Evals
 
 Reviewer evals score the deterministic Reviewer after plan execution.
@@ -135,7 +173,7 @@ PYTHONPATH=src python -m pyagentcli \
   --eval
 ```
 
-The CLI prints platform, coding-task, RAG, trace, Reviewer, real-model trace, and Reviewer proposal comparison summaries and writes a JSONL report:
+The CLI prints platform, coding-task, RAG, trace, Reviewer, real-model trace, per-model trace comparison, and Reviewer proposal comparison summaries and writes a JSONL report:
 
 ```text
 .pyagent/evals/eval_YYYYMMDD_HHMMSS.jsonl
@@ -150,6 +188,7 @@ Report lines include a `kind` field:
 {"kind": "trace_eval", "case_id": "trace.update_readme_status", "...": "..."}
 {"kind": "reviewer_eval", "case_id": "reviewer.failed_step", "...": "..."}
 {"kind": "real_model_trace_eval", "case_id": "real_model_trace.list_workspace", "...": "..."}
+{"kind": "model_trace_comparison", "model_name": "fast", "case_id": "real_model_trace.list_workspace", "...": "..."}
 {"kind": "reviewer_proposal_comparison", "case_id": "reviewer_proposal_compare.matched_retry", "...": "..."}
 ```
 
@@ -159,6 +198,6 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Add per-model trace comparison reports.
+1. Add git diff-aware Reviewer artifacts.
 2. Add browser network log evals.
 3. Add per-retriever comparison reports.

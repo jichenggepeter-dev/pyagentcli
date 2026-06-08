@@ -30,6 +30,14 @@ class AgentRoleConfig:
 
 
 @dataclass(frozen=True)
+class EvalModelConfig:
+    name: str
+    model: str
+    base_url: str = "https://api.openai.com/v1"
+    api_key_env: str = "OPENAI_API_KEY"
+
+
+@dataclass(frozen=True)
 class AppConfig:
     workspace_root: Path
     model: str
@@ -40,6 +48,7 @@ class AppConfig:
     mcp_servers: tuple[MCPServerConfig, ...] = ()
     embedding: EmbeddingConfig = EmbeddingConfig()
     agent_roles: tuple[AgentRoleConfig, ...] = ()
+    eval_models: tuple[EvalModelConfig, ...] = ()
 
     def role_config(self, role: str) -> AgentRoleConfig:
         for config in self.agent_roles:
@@ -69,6 +78,7 @@ def load_config(workspace: str | None = None, *, interactive: bool = True) -> Ap
         mcp_servers=load_project_mcp_servers(workspace_root),
         embedding=load_project_embedding_config(workspace_root),
         agent_roles=load_project_agent_role_configs(workspace_root),
+        eval_models=load_project_eval_model_configs(workspace_root),
     )
 
 
@@ -148,6 +158,30 @@ def load_project_agent_role_configs(workspace_root: Path) -> tuple[AgentRoleConf
         model = _optional_string(raw.get("model"))
         system_prompt = _optional_string(raw.get("system_prompt"))
         configs.append(AgentRoleConfig(role=role, model=model, system_prompt=system_prompt))
+    return tuple(configs)
+
+
+def load_project_eval_model_configs(workspace_root: Path) -> tuple[EvalModelConfig, ...]:
+    data = _load_project_toml(workspace_root)
+    raw_models = (((data.get("evals") or {}).get("model_comparison") or {}).get("models") or {})
+    if not isinstance(raw_models, dict):
+        return ()
+
+    configs: list[EvalModelConfig] = []
+    for name, raw_model in raw_models.items():
+        if not isinstance(raw_model, dict):
+            continue
+        model = _optional_string(raw_model.get("model"))
+        if model is None:
+            continue
+        configs.append(
+            EvalModelConfig(
+                name=str(name),
+                model=model,
+                base_url=str(raw_model.get("base_url") or "https://api.openai.com/v1").rstrip("/"),
+                api_key_env=str(raw_model.get("api_key_env") or "OPENAI_API_KEY"),
+            )
+        )
     return tuple(configs)
 
 

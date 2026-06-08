@@ -56,6 +56,7 @@ def test_parse_memory_flags() -> None:
     stale_args = parse_args(["--stale-memory-days", "30"])
     eval_args = parse_args(["--eval"])
     eval_real_model_args = parse_args(["--eval", "--eval-real-model"])
+    eval_compare_models_args = parse_args(["--eval", "--eval-compare-models"])
     skills_args = parse_args(["--list-skills"])
     browser_args = parse_args(["--check-browser"])
 
@@ -67,6 +68,8 @@ def test_parse_memory_flags() -> None:
     assert eval_args.eval is True
     assert eval_real_model_args.eval is True
     assert eval_real_model_args.eval_real_model is True
+    assert eval_compare_models_args.eval is True
+    assert eval_compare_models_args.eval_compare_models is True
     assert skills_args.list_skills is True
     assert browser_args.check_browser is True
 
@@ -486,6 +489,7 @@ def test_run_evals_outputs_summary(tmp_path) -> None:
     assert "reviewer.failed_step" in result
     assert "proposal=retry_step" in result
     assert "Real model trace eval: disabled (enable with --eval-real-model)." in result
+    assert "Per-model trace comparison eval: disabled (enable with --eval-compare-models)." in result
     assert "Reviewer proposal comparison eval:" in result
     assert "model-action match rate 33%" in result
     assert "reviewer_proposal_compare.mismatched_action" in result
@@ -499,6 +503,16 @@ def test_run_evals_real_model_without_api_key_is_disabled(tmp_path, monkeypatch)
 
     assert "Real model trace eval: disabled (OPENAI_API_KEY is not configured)." in result
     assert "real_model_trace.list_workspace" not in result
+
+
+def test_run_evals_model_comparison_without_config_is_disabled(tmp_path) -> None:
+    result = run_evals(workspace=str(tmp_path), include_model_trace_comparison=True)
+
+    assert (
+        "Per-model trace comparison eval: disabled "
+        "(no models configured under [evals.model_comparison.models])."
+    ) in result
+    assert "model_trace_comparison" not in result
 
 
 def test_index_workspace_builds_index(tmp_path) -> None:

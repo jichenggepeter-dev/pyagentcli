@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 from pyagentcli.agent.loop import AgentLoop
 from pyagentcli.agent.plan_executor import PlanExecutor
@@ -22,7 +23,7 @@ from pyagentcli.context_injection import inject_context_references
 from pyagentcli.evals.runner import EvalRunner
 from pyagentcli.llm.base import Message
 from pyagentcli.llm.model_config import build_llm_client
-from pyagentcli.llm.openai_compatible import LocalFallbackClient
+from pyagentcli.llm.openai_compatible import LocalFallbackClient, OpenAICompatibleClient
 from pyagentcli.memory.project_memory import ProjectMemory
 from pyagentcli.mcp.adapter import register_configured_mcp_tools
 from pyagentcli.rag.embeddings import build_embedding_provider
@@ -181,6 +182,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Opt in to real-model trace evals when --eval is used. Requires OPENAI_API_KEY.",
     )
     parser.add_argument(
+        "--eval-compare-models",
+        action="store_true",
+        help="Opt in to per-model trace comparison using [evals.model_comparison.models] in pyagent.toml.",
+    )
+    parser.add_argument(
         "--list-skills",
         action="store_true",
         help="List enabled local skills from .pyagent/skills.",
@@ -229,7 +235,13 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.eval:
-        print(run_evals(workspace=args.workspace, include_real_model_trace=args.eval_real_model))
+        print(
+            run_evals(
+                workspace=args.workspace,
+                include_real_model_trace=args.eval_real_model,
+                include_model_trace_comparison=args.eval_compare_models,
+            )
+        )
         return
 
     if args.list_skills:
@@ -343,7 +355,12 @@ def show_stale_memory(days: int, *, workspace: str | None = None) -> str:
     return ProjectMemory(config.workspace_root).format_stale_notes(older_than_days=days)
 
 
-def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = False) -> str:
+def run_evals(
+    *,
+    workspace: str | None = None,
+    include_real_model_trace: bool = False,
+    include_model_trace_comparison: bool = False,
+) -> str:
     config = load_config(workspace=workspace, interactive=False)
     real_model_llm = None
     real_model_disabled_reason = "enable with --eval-real-model"
@@ -353,6 +370,31 @@ def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = 
             real_model_disabled_reason = None
         else:
             real_model_disabled_reason = "OPENAI_API_KEY is not configured"
+    model_trace_comparison_llms = None
+    model_trace_comparison_disabled_reason = "enable with --eval-compare-models"
+    if include_model_trace_comparison:
+        configured_models = config.eval_models
+        if not configured_models:
+            model_trace_comparison_disabled_reason = (
+                "no models configured under [evals.model_comparison.models]"
+            )
+        else:
+            model_trace_comparison_llms = {}
+            missing_api_key_envs: list[str] = []
+            for model_config in configured_models:
+                api_key = os.getenv(model_config.api_key_env)
+                if not api_key:
+                    missing_api_key_envs.append(model_config.api_key_env)
+                    continue
+                model_trace_comparison_llms[model_config.name] = OpenAICompatibleClient(
+                    api_key=api_key,
+                    base_url=model_config.base_url,
+                    model=model_config.model,
+                )
+            if not model_trace_comparison_llms:
+                missing = ", ".join(sorted(set(missing_api_key_envs))) or "configured API key env vars"
+                model_trace_comparison_disabled_reason = f"{missing} is not configured"
+                model_trace_comparison_llms = None
     (
         summary,
         results,
@@ -367,6 +409,8 @@ def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = 
         reviewer_results,
         real_model_trace_summary,
         real_model_trace_results,
+        model_trace_comparison_summary,
+        model_trace_comparison_results,
         reviewer_proposal_comparison_summary,
         reviewer_proposal_comparison_results,
     ) = EvalRunner(
@@ -375,6 +419,8 @@ def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = 
         include_real_model_trace=include_real_model_trace,
         real_model_llm=real_model_llm,
         real_model_disabled_reason=real_model_disabled_reason,
+        model_trace_comparison_llms=model_trace_comparison_llms,
+        model_trace_comparison_disabled_reason=model_trace_comparison_disabled_reason,
     )
     lines = [
         summary.format_text(),
@@ -383,6 +429,7 @@ def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = 
         trace_summary.format_text(),
         reviewer_summary.format_text(),
         real_model_trace_summary.format_text(),
+        model_trace_comparison_summary.format_text(),
         reviewer_proposal_comparison_summary.format_text(),
         f"Report: {report_path}",
         "",
@@ -423,6 +470,14 @@ def run_evals(*, workspace: str | None = None, include_real_model_trace: bool = 
     for result in real_model_trace_results:
         status = "PASS" if result.passed else "FAIL"
         lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
+        lines.append(f"  tools: {', '.join(result.used_tools) or '<none>'}")
+        if not result.passed:
+            lines.append(f"  {result.message}")
+    for result in model_trace_comparison_results:
+        status = "PASS" if result.passed else "FAIL"
+        lines.append(
+            f"{status} {result.model_name} {result.case_id}: {result.name} ({result.duration_ms} ms)"
+        )
         lines.append(f"  tools: {', '.join(result.used_tools) or '<none>'}")
         if not result.passed:
             lines.append(f"  {result.message}")
