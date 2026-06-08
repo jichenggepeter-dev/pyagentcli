@@ -24,6 +24,7 @@
 - [13 Eval Harness 和 Trace Eval](career_learning_path/13_eval_harness_trace_eval.md)
 - [14 多模态和未来扩展](career_learning_path/14_multimodal_future_extensions.md)
 - [16 面试题第一弹：ReAct、Plan-and-Execute、Multi-Agent](career_learning_path/16_interview_react_plan_multi_agent.md)
+- [17 面试题第二弹：Memory、RAG、长上下文工程](career_learning_path/17_interview_memory_rag_context.md)
 - [旧版项目定位](career_learning_path/01_project_positioning.md)
 - [旧版先把项目跑起来](career_learning_path/02_run_project.md)
 - [03 简历篇：AI Agent 岗位写法](career_learning_path/03_resume_ai_agent.md)
