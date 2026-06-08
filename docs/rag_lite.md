@@ -308,6 +308,17 @@ The API key is read from the named environment variable. Do not put secrets dire
 
 If the embedding provider is not configured, missing, or fails during indexing/search, PyAgentCLI falls back to deterministic FTS behavior.
 
+## Retriever Comparison Evals
+
+Eval harness now compares retrieval strategies on fixed local fixtures:
+
+- exact SQLite FTS search
+- deterministic `hash` vector search
+- hybrid merged retrieval
+- explicit disabled-vector row when no embedding provider is configured
+
+The comparison report records retriever name, case id, expected path, hit path, rank, score, and disabled reason. It is written to eval JSONL as `retriever_comparison`.
+
 ## Next Steps
 
 1. Add symbol-aware chunking for more languages.

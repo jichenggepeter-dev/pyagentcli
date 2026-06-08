@@ -403,6 +403,8 @@ def run_evals(
         coding_results,
         rag_summary,
         rag_results,
+        retriever_comparison_summary,
+        retriever_comparison_results,
         trace_summary,
         trace_results,
         reviewer_summary,
@@ -426,6 +428,7 @@ def run_evals(
         summary.format_text(),
         coding_summary.format_text(),
         rag_summary.format_text(),
+        retriever_comparison_summary.format_text(),
         trace_summary.format_text(),
         reviewer_summary.format_text(),
         real_model_trace_summary.format_text(),
@@ -450,6 +453,21 @@ def run_evals(
         lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")
         if not result.passed:
             lines.append(f"  {result.message}")
+    for result in retriever_comparison_results:
+        if result.enabled:
+            status = "PASS" if result.passed else "FAIL"
+            lines.append(
+                f"{status} {result.retriever_name} {result.case_id}: "
+                f"rank={result.rank or '<none>'}; hit={result.hit_path or '<none>'}; "
+                f"score={result.score if result.score is not None else '<none>'}"
+            )
+            if not result.passed:
+                lines.append(f"  {result.message}")
+        else:
+            lines.append(
+                f"DISABLED {result.retriever_name} {result.case_id}: "
+                f"{result.disabled_reason or 'disabled'}"
+            )
     for result in trace_results:
         status = "PASS" if result.passed else "FAIL"
         lines.append(f"{status} {result.case_id}: {result.name} ({result.duration_ms} ms)")

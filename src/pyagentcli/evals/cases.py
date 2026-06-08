@@ -52,6 +52,15 @@ class RagRetrievalCase:
 
 
 @dataclass(frozen=True)
+class RetrieverComparisonCase:
+    case_id: str
+    name: str
+    initial_files: dict[str, str]
+    query: str
+    expected_path: str
+
+
+@dataclass(frozen=True)
 class TraceEvalCase:
     case_id: str
     name: str
@@ -183,6 +192,17 @@ BUILTIN_RAG_RETRIEVAL_CASES = [
         expected_path="src/app.py",
         expected_text="src/app.py:1 imports helpers:normalize",
     ),
+]
+
+
+BUILTIN_RETRIEVER_COMPARISON_CASES = [
+    RetrieverComparisonCase(
+        case_id="retriever_compare.project_status",
+        name="Project status retrieval comparison",
+        initial_files={"src/app.py": "def project_status():\n    return 'READY'\n"},
+        query="project_status",
+        expected_path="src/app.py",
+    )
 ]
 
 

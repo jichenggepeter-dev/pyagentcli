@@ -16,12 +16,14 @@ from pyagentcli.evals.cases import (
     BUILTIN_CODING_TASKS,
     BUILTIN_RAG_RETRIEVAL_CASES,
     BUILTIN_REAL_MODEL_TRACE_CASES,
+    BUILTIN_RETRIEVER_COMPARISON_CASES,
     BUILTIN_REVIEWER_PROPOSAL_COMPARISON_CASES,
     BUILTIN_REVIEWER_EVAL_CASES,
     BUILTIN_TRACE_EVAL_CASES,
     CodingTaskCase,
     EvalCase,
     RagRetrievalCase,
+    RetrieverComparisonCase,
     ReviewerEvalCase,
     ReviewerProposalComparisonCase,
     TraceEvalCase,
@@ -33,6 +35,7 @@ from pyagentcli.evals.metrics import (
     ModelTraceComparisonSummary,
     RagRetrievalSummary,
     RealModelTraceSummary,
+    RetrieverComparisonSummary,
     ReviewerProposalComparisonSummary,
     ReviewerEvalSummary,
     TraceEvalSummary,
@@ -43,7 +46,10 @@ from pyagentcli.agent.reviewer import Reviewer
 from pyagentcli.llm.base import LLMClient, LLMResponse, Message
 from pyagentcli.llm.openai_compatible import LocalFallbackClient
 from pyagentcli.memory.project_memory import ProjectMemory
+from pyagentcli.rag.embeddings import HashEmbeddingProvider, NullEmbeddingProvider
 from pyagentcli.rag.indexer import CodeIndexer
+from pyagentcli.rag.retriever import HybridRetriever, RetrievalHit
+from pyagentcli.rag.vector_store import SQLiteVectorStore
 from pyagentcli.safety.approval import ApprovalResult
 from pyagentcli.safety.audit_log import AuditLogger
 from pyagentcli.safety.policy import SafetyDecision, SafetyPolicy
@@ -84,6 +90,23 @@ class RagRetrievalResult:
     query_type: str
     query: str
     expected_path: str
+    duration_ms: int
+
+
+@dataclass(frozen=True)
+class RetrieverComparisonResult:
+    retriever_name: str
+    case_id: str
+    name: str
+    enabled: bool
+    passed: bool
+    message: str
+    query: str
+    expected_path: str
+    hit_path: str | None
+    rank: int | None
+    score: float | None
+    disabled_reason: str | None
     duration_ms: int
 
 
@@ -180,6 +203,8 @@ class EvalRunner:
         list[CodingTaskResult],
         RagRetrievalSummary,
         list[RagRetrievalResult],
+        RetrieverComparisonSummary,
+        list[RetrieverComparisonResult],
         TraceEvalSummary,
         list[TraceEvalResult],
         ReviewerEvalSummary,
@@ -196,6 +221,11 @@ class EvalRunner:
             results = [self._run_case(case, eval_root) for case in BUILTIN_CASES]
             coding_results = [self._run_coding_task(case, eval_root) for case in BUILTIN_CODING_TASKS]
             rag_results = [self._run_rag_retrieval(case, eval_root) for case in BUILTIN_RAG_RETRIEVAL_CASES]
+            retriever_comparison_results = [
+                result
+                for case in BUILTIN_RETRIEVER_COMPARISON_CASES
+                for result in self._run_retriever_comparison(case, eval_root)
+            ]
             trace_results = [self._run_trace_eval(case) for case in BUILTIN_TRACE_EVAL_CASES]
             trace_results.extend(self._run_agent_trace_case(case, eval_root) for case in BUILTIN_AGENT_TRACE_CASES)
             reviewer_results = [self._run_reviewer_eval(case, eval_root) for case in BUILTIN_REVIEWER_EVAL_CASES]
@@ -248,6 +278,13 @@ class EvalRunner:
             total=len(rag_results),
             passed=sum(1 for result in rag_results if result.passed),
             failed=sum(1 for result in rag_results if not result.passed),
+        )
+        retriever_comparison_summary = RetrieverComparisonSummary(
+            total=len(retriever_comparison_results),
+            enabled=sum(1 for result in retriever_comparison_results if result.enabled),
+            disabled=sum(1 for result in retriever_comparison_results if not result.enabled),
+            passed=sum(1 for result in retriever_comparison_results if result.enabled and result.passed),
+            failed=sum(1 for result in retriever_comparison_results if result.enabled and not result.passed),
         )
         trace_summary = TraceEvalSummary(
             total=len(trace_results),
@@ -308,6 +345,7 @@ class EvalRunner:
             results,
             coding_results,
             rag_results,
+            retriever_comparison_results,
             trace_results,
             reviewer_results,
             real_model_trace_results,
@@ -322,6 +360,8 @@ class EvalRunner:
             coding_results,
             rag_summary,
             rag_results,
+            retriever_comparison_summary,
+            retriever_comparison_results,
             trace_summary,
             trace_results,
             reviewer_summary,
@@ -472,6 +512,78 @@ class EvalRunner:
             expected_path=case.expected_path,
             duration_ms=int((perf_counter() - started) * 1000),
         )
+
+    def _run_retriever_comparison(
+        self,
+        case: RetrieverComparisonCase,
+        eval_root: Path,
+    ) -> list[RetrieverComparisonResult]:
+        workspace = workspace_for_case(eval_root, EvalCase(case.case_id, case.name, case.query))
+        workspace.mkdir(parents=True, exist_ok=True)
+        for relative_path, content in case.initial_files.items():
+            target = workspace / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+        embedding_provider = HashEmbeddingProvider()
+        indexer = CodeIndexer(workspace, embedding_provider=embedding_provider)
+        indexer.rebuild()
+        exact_hits = [
+            RetrievalHit.from_index_hit(hit, score=1.0 / (index + 1))
+            for index, hit in enumerate(indexer.search(case.query, max_results=5).hits)
+        ]
+        vector_hits = [
+            RetrievalHit.from_vector_hit(hit)
+            for hit in SQLiteVectorStore(indexer.database_path).search(
+                case.query,
+                provider=embedding_provider,
+                max_results=5,
+            )
+        ]
+        hybrid_hits = HybridRetriever(
+            workspace,
+            indexer=indexer,
+            embedding_provider=embedding_provider,
+        ).search(case.query, max_results=5).hits
+
+        results = [
+            _score_retriever_comparison(
+                retriever_name="exact",
+                case=case,
+                hits=exact_hits,
+            ),
+            _score_retriever_comparison(
+                retriever_name="vector-hash",
+                case=case,
+                hits=vector_hits,
+            ),
+            _score_retriever_comparison(
+                retriever_name="hybrid-hash",
+                case=case,
+                hits=hybrid_hits,
+            ),
+        ]
+        disabled_started = perf_counter()
+        null_provider = NullEmbeddingProvider()
+        if not null_provider.available:
+            results.append(
+                RetrieverComparisonResult(
+                    retriever_name="vector-disabled",
+                    case_id=case.case_id,
+                    name=case.name,
+                    enabled=False,
+                    passed=False,
+                    message="disabled",
+                    query=case.query,
+                    expected_path=case.expected_path,
+                    hit_path=None,
+                    rank=None,
+                    score=None,
+                    disabled_reason="embedding provider is not configured",
+                    duration_ms=int((perf_counter() - disabled_started) * 1000),
+                )
+            )
+        return results
 
     def _run_trace_eval(self, case: TraceEvalCase) -> TraceEvalResult:
         started = perf_counter()
@@ -657,6 +769,7 @@ class EvalRunner:
         results: list[EvalResult],
         coding_results: list[CodingTaskResult],
         rag_results: list[RagRetrievalResult],
+        retriever_comparison_results: list[RetrieverComparisonResult],
         trace_results: list[TraceEvalResult],
         reviewer_results: list[ReviewerEvalResult],
         real_model_trace_results: list[TraceEvalResult],
@@ -674,6 +787,9 @@ class EvalRunner:
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in rag_results:
                 payload = {"kind": "rag_retrieval", **asdict(result)}
+                handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            for result in retriever_comparison_results:
+                payload = {"kind": "retriever_comparison", **asdict(result)}
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
             for result in trace_results:
                 payload = {"kind": "trace_eval", **asdict(result)}
@@ -746,6 +862,40 @@ def _score_trace(
         matched_tool_calls=matched_tool_calls,
         safety_violations=safety_violations,
         final_output=final_output,
+        duration_ms=int((perf_counter() - started) * 1000),
+    )
+
+
+def _score_retriever_comparison(
+    *,
+    retriever_name: str,
+    case: RetrieverComparisonCase,
+    hits: list[RetrievalHit],
+) -> RetrieverComparisonResult:
+    started = perf_counter()
+    rank = None
+    matched_hit = None
+    for index, hit in enumerate(hits, start=1):
+        if hit.path == case.expected_path:
+            rank = index
+            matched_hit = hit
+            break
+
+    passed = matched_hit is not None
+    top_hit = hits[0] if hits else None
+    return RetrieverComparisonResult(
+        retriever_name=retriever_name,
+        case_id=case.case_id,
+        name=case.name,
+        enabled=True,
+        passed=passed,
+        message="passed" if passed else f"Expected {case.expected_path}, top hit was {top_hit.path if top_hit else '<none>'}",
+        query=case.query,
+        expected_path=case.expected_path,
+        hit_path=matched_hit.path if matched_hit is not None else (top_hit.path if top_hit is not None else None),
+        rank=rank,
+        score=matched_hit.score if matched_hit is not None else (top_hit.score if top_hit is not None else None),
+        disabled_reason=None,
         duration_ms=int((perf_counter() - started) * 1000),
     )
 

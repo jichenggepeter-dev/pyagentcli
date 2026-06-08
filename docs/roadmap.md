@@ -113,6 +113,8 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 - coding task eval fixture with expected file outcome
 - task success rate, tool-call accuracy, and safety violation metrics
 - RAG retrieval evals for Python symbols, TypeScript symbols, and dependency context
+- retriever comparison evals for exact, vector-hash, hybrid-hash, and disabled-vector paths
+- retriever comparison reports written as `retriever_comparison`
 - captured trace eval with expected tool sequence, forbidden tool checks, and final output scoring
 - AgentLoop trace capture with local fallback trace eval
 - expected diff scoring for coding task evals
@@ -180,7 +182,6 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 ### Advanced RAG
 
 - richer dependency context such as imported-by edges
-- retriever comparison metrics
 
 ### Advanced Memory
 
@@ -191,11 +192,11 @@ For the detailed phase-by-phase execution plan, see [execution_plan_zh.md](execu
 
 ## Recommended Next Phases
 
-1. **Per-Retriever Comparison Reports**
-   Compare exact, vector, and hybrid retrieval quality on fixed retrieval fixtures.
-
-2. **Richer Changed-File Risk Scoring**
+1. **Richer Changed-File Risk Scoring**
    Score Reviewer risk by changed file type, path sensitivity, and diff size.
 
-3. **Browser Assertion Evals**
+2. **Browser Assertion Evals**
    Add eval cases that validate browser assertions on fixed local HTML fixtures.
+
+3. **Imported-By Dependency Context**
+   Add reverse dependency context to RAG retrieval and context injection.

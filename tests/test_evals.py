@@ -27,6 +27,8 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
         coding_results,
         rag_summary,
         rag_results,
+        retriever_comparison_summary,
+        retriever_comparison_results,
         trace_summary,
         trace_results,
         reviewer_summary,
@@ -55,6 +57,22 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert rag_summary.total == 3
     assert rag_summary.failed == 0
     assert all(result.passed for result in rag_results)
+    assert retriever_comparison_summary.total == 4
+    assert retriever_comparison_summary.enabled == 3
+    assert retriever_comparison_summary.disabled == 1
+    assert retriever_comparison_summary.failed == 0
+    assert {result.retriever_name for result in retriever_comparison_results} == {
+        "exact",
+        "vector-hash",
+        "hybrid-hash",
+        "vector-disabled",
+    }
+    assert all(result.passed for result in retriever_comparison_results if result.enabled)
+    assert any(
+        result.disabled_reason == "embedding provider is not configured"
+        for result in retriever_comparison_results
+        if not result.enabled
+    )
     assert trace_summary.total == 2
     assert trace_summary.failed == 0
     assert trace_summary.tool_call_accuracy == 1.0
@@ -95,6 +113,9 @@ def test_eval_runner_runs_builtin_cases(tmp_path: Path) -> None:
     assert '"kind": "coding_task"' in report_text
     assert '"matched_diffs": 1' in report_text
     assert '"kind": "rag_retrieval"' in report_text
+    assert '"kind": "retriever_comparison"' in report_text
+    assert '"retriever_name": "hybrid-hash"' in report_text
+    assert '"retriever_name": "vector-disabled"' in report_text
     assert '"kind": "trace_eval"' in report_text
     assert '"kind": "reviewer_eval"' in report_text
     assert '"kind": "reviewer_proposal_comparison"' in report_text

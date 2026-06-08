@@ -51,6 +51,23 @@ RAG retrieval evals check whether the retrieval layer returns the expected conte
 
 These evals do not call a model. They build fixture workspaces, rebuild the local index, and check deterministic retrieval output.
 
+## Retriever Comparison Evals
+
+Retriever comparison evals compare retrieval strategies on fixed local fixtures:
+
+- `exact`: SQLite FTS search
+- `vector-hash`: deterministic local hash embedding vector search
+- `hybrid-hash`: merged exact and vector retrieval
+- `vector-disabled`: disabled row proving the no-provider path is explicit
+
+These evals do not call external embedding services. The vector-enabled comparison uses the deterministic `hash` provider so default evals remain local and repeatable.
+
+The reported metrics are:
+
+- enabled comparison pass rate
+- disabled comparison count
+- hit path, rank, and score per retriever
+
 ## Captured Trace Evals
 
 Trace evals score an auditable Agent-like run trace:
@@ -173,7 +190,7 @@ PYTHONPATH=src python -m pyagentcli \
   --eval
 ```
 
-The CLI prints platform, coding-task, RAG, trace, Reviewer, real-model trace, per-model trace comparison, and Reviewer proposal comparison summaries and writes a JSONL report:
+The CLI prints platform, coding-task, RAG, retriever comparison, trace, Reviewer, real-model trace, per-model trace comparison, and Reviewer proposal comparison summaries and writes a JSONL report:
 
 ```text
 .pyagent/evals/eval_YYYYMMDD_HHMMSS.jsonl
@@ -185,6 +202,7 @@ Report lines include a `kind` field:
 {"kind": "platform", "case_id": "tools.registry", "...": "..."}
 {"kind": "coding_task", "case_id": "coding.update_readme_status", "...": "..."}
 {"kind": "rag_retrieval", "case_id": "rag_retrieval.typescript_symbol", "...": "..."}
+{"kind": "retriever_comparison", "retriever_name": "hybrid-hash", "case_id": "retriever_compare.project_status", "...": "..."}
 {"kind": "trace_eval", "case_id": "trace.update_readme_status", "...": "..."}
 {"kind": "reviewer_eval", "case_id": "reviewer.failed_step", "...": "..."}
 {"kind": "real_model_trace_eval", "case_id": "real_model_trace.list_workspace", "...": "..."}
@@ -198,6 +216,6 @@ Agent evaluation should separate platform regressions from model behavior. These
 
 ## Next Steps
 
-1. Add git diff-aware Reviewer artifacts.
-2. Add browser network log evals.
-3. Add per-retriever comparison reports.
+1. Add changed-file risk scoring to Reviewer.
+2. Add browser assertion evals.
+3. Add richer dependency context such as imported-by edges.

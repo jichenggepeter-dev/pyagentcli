@@ -483,6 +483,9 @@ def test_run_evals_outputs_summary(tmp_path) -> None:
     assert "4/4 passed" in result
     assert "diff accuracy 100%" in result
     assert "tools.registry" in result
+    assert "Retriever comparison eval:" in result
+    assert "3/3 enabled comparisons passed" in result
+    assert "DISABLED vector-disabled retriever_compare.project_status" in result
     assert "Trace eval:" in result
     assert "trace.update_readme_status" in result
     assert "Reviewer eval:" in result

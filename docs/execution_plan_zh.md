@@ -36,7 +36,7 @@ PyAgentCLI 的开发不按“想到哪里写到哪里”推进，而按下面的
 
 当前推荐继续：
 
-- Phase 4.13：Per-Retriever Comparison Reports
+- Phase 4.14：Richer Changed-File Risk Scoring
 
 ## Roadmap 总览
 
@@ -638,30 +638,40 @@ User Goal
 
 名称：
 
-- Per-Retriever Comparison Reports
+- Richer Changed-File Risk Scoring
 
 目标：
 
-- 在固定 RAG fixture 上比较 exact、vector、hybrid retrieval 的命中质量，为后续检索策略调优提供报告。
+- 在 Reviewer 已经读取 git diff 的基础上，按变更文件类型、路径敏感度和 diff 大小输出更细的风险评分。
 
 第一小步：
 
-- 设计 retriever comparison result：retriever name、case_id、rank、hit path、score。
+- 设计 changed-file risk 输入：path、added_lines、removed_lines、file_type。
 
 第二小步：
 
-- 在没有 embedding provider 时清晰标记 vector disabled，不影响 exact/hybrid 本地 eval。
+- 为关键路径如 `src/pyagentcli/safety/**`、`tools/**`、`llm/**` 提高风险提示。
 
 第三小步：
 
-- 输出 JSONL comparison report，并在 CLI summary 中展示各 retriever pass rate。
+- 将风险评分写入 Reviewer artifact，不改变 deterministic gate 判定。
 
 完成标准：
 
-- 默认 eval 不依赖外部 embedding 服务。
-- exact/hybrid comparison 可在本地稳定运行。
-- vector 缺配置时 disabled reason 清晰。
+- 小 diff / 文档 diff / safety/tooling diff 能产生不同风险说明。
+- 非 git workspace 和无 diff 行为不变。
 - 全量测试通过。
+
+## 最近完成：Per-Retriever Comparison Reports
+
+完成内容：
+
+- 新增 retriever comparison eval fixture，对比 exact、vector-hash、hybrid-hash。
+- 默认 eval 不调用外部 embedding 服务，vector 使用 deterministic `hash` provider。
+- 新增 `vector-disabled` 结果，明确记录无 embedding provider 时的 disabled reason。
+- CLI `--eval` 新增 Retriever comparison summary 和每条 retriever 明细。
+- JSONL report 新增 `retriever_comparison` 类型，记录 retriever name、rank、hit path、score。
+- 补充 eval / CLI 测试，并同步 `docs/evals.md`、`docs/rag_lite.md`、`docs/roadmap.md`。
 
 ## 最近完成：Richer Browser Assertions
 

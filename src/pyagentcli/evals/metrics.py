@@ -79,6 +79,29 @@ class RagRetrievalSummary:
 
 
 @dataclass(frozen=True)
+class RetrieverComparisonSummary:
+    total: int
+    enabled: int
+    disabled: int
+    passed: int
+    failed: int
+
+    @property
+    def pass_rate(self) -> float:
+        if self.enabled == 0:
+            return 0.0
+        return self.passed / self.enabled
+
+    def format_text(self) -> str:
+        return (
+            "Retriever comparison eval: "
+            f"{self.passed}/{self.enabled} enabled comparisons passed "
+            f"({self.pass_rate:.0%}); "
+            f"{self.failed} failed; {self.disabled} disabled."
+        )
+
+
+@dataclass(frozen=True)
 class TraceEvalSummary:
     total: int
     passed: int
