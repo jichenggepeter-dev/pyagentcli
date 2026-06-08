@@ -795,6 +795,6 @@ PyAgentCLI Reviewer v0.3 已加入 git diff summary。
 
 下一篇进入：
 
-> Browser Tools 和联网搜索
+> [Browser Tools 和联网搜索](08_browser_search.md)
 
 Multi-Agent 解决的是任务角色如何分工；Browser/Search 解决的是 Agent 如何观察本地页面、DOM、截图、console、network，以及如何处理浏览器能力和登录态边界。

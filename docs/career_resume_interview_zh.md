@@ -16,6 +16,7 @@
 - [05 RAG 代码检索](career_learning_path/05_rag_code_retrieval.md)
 - [06 Tool Call、HITL 和安全策略](career_learning_path/06_tool_hitl_safety.md)
 - [07 Multi-Agent](career_learning_path/07_multi_agent.md)
+- [08 Browser Tools 和联网搜索](career_learning_path/08_browser_search.md)
 - [旧版项目定位](career_learning_path/01_project_positioning.md)
 - [旧版先把项目跑起来](career_learning_path/02_run_project.md)
 - [03 简历篇：AI Agent 岗位写法](career_learning_path/03_resume_ai_agent.md)
