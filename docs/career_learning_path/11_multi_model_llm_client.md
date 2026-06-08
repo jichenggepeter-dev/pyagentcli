@@ -1543,6 +1543,6 @@ browser inspect  -> fast model
 
 下一篇进入：
 
-> 产品化：CLI UX、Git、Runtime API
+> [产品化：CLI UX、Git、Runtime API](12_productization_cli_git_runtime.md)
 
 多模型适配解决的是“Agent 用哪个模型以及怎么验证”；产品化要解决的是“这个 CLI 怎么变成一个真正好用、可发布、可维护的开发者工具”。

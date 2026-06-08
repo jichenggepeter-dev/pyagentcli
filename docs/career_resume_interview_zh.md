@@ -20,6 +20,7 @@
 - [09 接入 MCP](career_learning_path/09_mcp_integration.md)
 - [10 Prompt 分层和 Skill System](career_learning_path/10_prompt_skill_system.md)
 - [11 多模型适配和 LLM Client](career_learning_path/11_multi_model_llm_client.md)
+- [12 产品化：CLI UX、Git、Runtime API](career_learning_path/12_productization_cli_git_runtime.md)
 - [旧版项目定位](career_learning_path/01_project_positioning.md)
 - [旧版先把项目跑起来](career_learning_path/02_run_project.md)
 - [03 简历篇：AI Agent 岗位写法](career_learning_path/03_resume_ai_agent.md)
