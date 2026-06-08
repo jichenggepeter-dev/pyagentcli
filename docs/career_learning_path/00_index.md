@@ -151,7 +151,7 @@ PyAgentCLI 里怎么实现
 - [07 Multi-Agent](07_multi_agent.md)
 - [08 Browser Tools 和联网搜索](08_browser_search.md)
 - [09 接入 MCP](09_mcp_integration.md)
-- 10 Prompt 分层和 Skill System
+- [10 Prompt 分层和 Skill System](10_prompt_skill_system.md)
 - 11 多模型适配和 LLM Client
 - 12 产品化：CLI UX、Git、Runtime API
 - 13 Eval Harness 和 Trace Eval

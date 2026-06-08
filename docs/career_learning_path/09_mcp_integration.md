@@ -732,6 +732,6 @@ MCP 工具也必须写 audit log。
 
 下一篇进入：
 
-> Prompt 分层和 Skill System
+> [Prompt 分层和 Skill System](10_prompt_skill_system.md)
 
 MCP 扩展的是可执行工具来源；Skill 扩展的是可复用 prompt guidance。两者必须分清：Tool 能执行，Skill 不能绕过权限。
