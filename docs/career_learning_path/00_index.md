@@ -145,7 +145,7 @@ PyAgentCLI 里怎么实现
 
 - [02 ReAct 和 Tool Calling](02_react_tool_calling.md)
 - [03 Plan-and-Execute / DAG](03_plan_execute_dag.md)
-- 04 Memory 系统
+- [04 Memory 系统](04_memory_system.md)
 - 05 RAG 代码检索
 - 06 Tool Call、HITL 和安全策略
 - 07 Multi-Agent
@@ -280,7 +280,7 @@ v2 文档要把开发过程中的真实问题穿插进对应模块，而不是�
 1. [01 先跑通 PyAgentCLI](01_run_project.md)
 2. [ReAct 和 Tool Calling](02_react_tool_calling.md)
 3. [Plan-and-Execute / DAG](03_plan_execute_dag.md)
-4. Memory 系统
+4. [Memory 系统](04_memory_system.md)
 5. RAG 代码检索
 6. Tool Call、HITL 和安全策略
 

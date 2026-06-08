@@ -785,6 +785,6 @@ PyAgentCLI 当前就是按这个方向做的。
 
 下一篇进入：
 
-> Memory 系统
+> [Memory 系统](04_memory_system.md)
 
 Plan 解决的是任务步骤如何拆解、执行和恢复；Memory 解决的是 Agent 如何记住会话、项目和长期偏好，同时避免上下文无限膨胀。

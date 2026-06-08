@@ -12,6 +12,7 @@
 - [01 先跑通 PyAgentCLI](career_learning_path/01_run_project.md)
 - [02 ReAct 和 Tool Calling](career_learning_path/02_react_tool_calling.md)
 - [03 Plan-and-Execute / DAG](career_learning_path/03_plan_execute_dag.md)
+- [04 Memory 系统](career_learning_path/04_memory_system.md)
 - [旧版项目定位](career_learning_path/01_project_positioning.md)
 - [旧版先把项目跑起来](career_learning_path/02_run_project.md)
 - [03 简历篇：AI Agent 岗位写法](career_learning_path/03_resume_ai_agent.md)
